@@ -37,6 +37,7 @@ export function useMacroStore() {
   useEffect(() => { localStorage.setItem(`macros:log:${todayKey()}`, JSON.stringify(log));     }, [log]);
 
   const addFood    = (food) => setFoodsRaw(prev => [...prev, { ...food, id: Date.now() }]);
+  const updateFood = (food) => setFoodsRaw(prev => prev.map(f => (f.id === food.id ? { ...f, ...food } : f)));
   const addEntry   = (entry) => setLogRaw(prev => [...prev, { ...entry, id: Date.now() }]);
   const removeEntry = (id)  => setLogRaw(prev => prev.filter(e => e.id !== id));
   const setTargets  = (t)   => setTargetsRaw(t);
@@ -51,7 +52,7 @@ export function useMacroStore() {
     { protein: 0, fat: 0, carbs: 0, kcal: 0 }
   );
 
-  return { foods, targets, log, totals, addFood, addEntry, removeEntry, setTargets };
+  return { foods, targets, log, totals, addFood, updateFood, addEntry, removeEntry, setTargets };
 }
 
 export function calcMacros(food, grams) {

@@ -3,9 +3,11 @@ import { useMacroStore, calcMacros } from "./useMacroStore.js";
 import { MacroBar } from "./MacroBar.jsx";
 import { AddFoodModal } from "./AddFoodModal.jsx";
 import { EditTargetsModal } from "./EditTargetsModal.jsx";
+import { FoodsModal } from "./FoodsModal.jsx";
+import { EditFoodModal } from "./EditFoodModal.jsx";
 
 export default function App() {
-  const { foods, targets, log, totals, addFood, addEntry, removeEntry, setTargets } = useMacroStore();
+  const { foods, targets, log, totals, addFood, updateFood, addEntry, removeEntry, setTargets } = useMacroStore();
 
   const [phase,        setPhase]        = useState("code"); // "code" | "qty"
   const [input,        setInput]        = useState("");
@@ -15,11 +17,13 @@ export default function App() {
   const [pendingCode,  setPendingCode]  = useState("");
   const [showTargets,  setShowTargets]  = useState(false);
   const [showLog,      setShowLog]      = useState(false);
+  const [showFoods,    setShowFoods]    = useState(false);
+  const [editingFood,  setEditingFood]  = useState(null);
 
   const inputRef = useRef();
   useEffect(() => {
-    if (!showAdd && !showTargets) inputRef.current?.focus();
-  }, [phase, showAdd, showTargets]);
+    if (!showAdd && !showTargets && !showFoods && !editingFood) inputRef.current?.focus();
+  }, [phase, showAdd, showTargets, showFoods, editingFood]);
 
   // ── Entry submission ────────────────────────────────────────────────────────
   const submit = () => {
@@ -99,6 +103,7 @@ export default function App() {
         </span>
         <div style={{ display: "flex", gap: 8 }}>
           <Btn active={showLog} onClick={() => setShowLog(s => !s)}>LOG ({log.length})</Btn>
+          <Btn active={showFoods} onClick={() => setShowFoods(true)}>FOODS</Btn>
           <Btn onClick={() => setShowTargets(true)}>TARGETS</Btn>
         </div>
       </div>
@@ -273,6 +278,24 @@ export default function App() {
             setSelectedFood({ ...food, id: Date.now() });
             setInput(String(food.defaultQty));
             setPhase("qty");
+          }}
+        />
+      )}
+      {showFoods && (
+        <FoodsModal
+          foods={foods}
+          onCancel={() => setShowFoods(false)}
+          onEdit={(food) => { setEditingFood(food); setShowFoods(false); }}
+        />
+      )}
+      {editingFood && (
+        <EditFoodModal
+          food={editingFood}
+          foods={foods}
+          onCancel={() => setEditingFood(null)}
+          onSave={(updated) => {
+            updateFood(updated);
+            setEditingFood(null);
           }}
         />
       )}
