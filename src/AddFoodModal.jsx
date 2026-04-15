@@ -177,7 +177,7 @@ export function AddFoodModal({ initialCode = "", onSave, onCancel }) {
                   style={{
                     width: "100%", background: "#1a1a1a", border: "1px solid #333",
                     color: "#fff", fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: 14, padding: "10px 12px", borderRadius: 4,
+                    fontSize: 16, padding: "10px 12px", borderRadius: 4,
                   }}
                 />
 
@@ -281,7 +281,7 @@ export function AddFoodModal({ initialCode = "", onSave, onCancel }) {
                   style={{
                     width: "100%", background: "#1a1a1a", border: "1px solid #333",
                     color: "#fff", fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: 14, padding: "8px 10px", borderRadius: 4,
+                    fontSize: 16, padding: "8px 10px", borderRadius: 4,
                   }}
                 />
               </div>
