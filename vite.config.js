@@ -8,6 +8,8 @@ export default defineConfig(({ mode }) => {
 
   return {
     server: {
+      host: true,
+      allowedHosts: ['markv.local'],
       proxy: apiKey ? {
         "/api/fdc/search": {
           target: "https://api.nal.usda.gov",
