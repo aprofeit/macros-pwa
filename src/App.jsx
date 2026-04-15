@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useMacroStore, calcMacros } from "./useMacroStore.js";
 import { MacroBar } from "./MacroBar.jsx";
 import { AddFoodModal } from "./AddFoodModal.jsx";
@@ -72,6 +72,15 @@ export default function App() {
     if (!g || g <= 0) return null;
     return calcMacros(selectedFood, g);
   })();
+
+  // ── Live code match feedback ────────────────────────────────────────────────
+  const codeLookup = useMemo(() => {
+    if (phase !== "code") return { code: "", food: null };
+    const code = input.trim().toLowerCase();
+    if (!code) return { code: "", food: null };
+    const food = foods.find(f => f.code === code) ?? null;
+    return { code, food };
+  }, [phase, input, foods]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -163,6 +172,15 @@ export default function App() {
           </div>
 
           {/* Live preview / error */}
+          {phase === "code" && codeLookup.code && !error && (
+            <div style={{ fontSize: 10, marginTop: 6, letterSpacing: 0.5, color: codeLookup.food ? "#c8f542" : "#666" }}>
+              {codeLookup.food ? (
+                <>FOUND: <span style={{ color: "#fff" }}>{codeLookup.food.name}</span> · submit to log</>
+              ) : (
+                <>NEW: <span style={{ color: "#fff" }}>{codeLookup.code}</span> · submit to create</>
+              )}
+            </div>
+          )}
           {error && (
             <div style={{ fontSize: 10, color: "#f44", marginTop: 6, letterSpacing: 1 }}>{error}</div>
           )}

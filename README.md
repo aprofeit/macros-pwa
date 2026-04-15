@@ -49,12 +49,14 @@ It installs as a standalone app — no browser chrome, full screen.
 
 Replace the placeholder files in `public/icons/` with real PNGs:
 
-| File | Size | Used for |
-|---|---|---|
-| `pwa-192.png` | 192×192 | Android PWA |
-| `pwa-512.png` | 512×512 | Android PWA splash / maskable |
-| `apple-touch-icon.png` | 180×180 | iOS home screen |
-| `favicon.ico` | 32×32 | Browser tab |
+
+| File                   | Size    | Used for                      |
+| ---------------------- | ------- | ----------------------------- |
+| `pwa-192.png`          | 192×192 | Android PWA                   |
+| `pwa-512.png`          | 512×512 | Android PWA splash / maskable |
+| `apple-touch-icon.png` | 180×180 | iOS home screen               |
+| `favicon.ico`          | 32×32   | Browser tab                   |
+
 
 Quick way to generate all sizes: [realfavicongenerator.net](https://realfavicongenerator.net)
 
@@ -62,16 +64,20 @@ Quick way to generate all sizes: [realfavicongenerator.net](https://realfavicong
 
 All data lives in `localStorage`:
 
-| Key | Contents |
-|---|---|
-| `macros:foods` | Your food DB (JSON array) |
-| `macros:targets` | Daily macro targets |
-| `macros:log:YYYY-MM-DD` | Log entries per day |
+
+| Key                     | Contents                  |
+| ----------------------- | ------------------------- |
+| `macros:foods`          | Your food DB (JSON array) |
+| `macros:targets`        | Daily macro targets       |
+| `macros:log:YYYY-MM-DD` | Log entries per day       |
+
 
 To export/back up: open the browser console and run:
+
 ```js
 JSON.stringify({
   foods:   JSON.parse(localStorage.getItem('macros:foods')),
   targets: JSON.parse(localStorage.getItem('macros:targets')),
 })
 ```
+
