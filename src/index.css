@@ -1,0 +1,43 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  background: #0a0a0a;
+  color: #fff;
+  /* Respect iPhone notch and home bar */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  /* Prevent iOS tap highlight */
+  -webkit-tap-highlight-color: transparent;
+  /* Prevent iOS text size adjustment on rotation */
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Prevent iOS rubber-band scroll on the root */
+#root {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Remove iOS input styling */
+input, button, textarea {
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
+}
+
+/* Prevent double-tap zoom on buttons */
+button {
+  touch-action: manipulation;
+}
