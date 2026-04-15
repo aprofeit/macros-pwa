@@ -1,8 +1,31 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const apiKey = env.FDC_API_KEY || env.VITE_FDC_API_KEY;
+
+  return {
+    server: {
+      proxy: apiKey ? {
+        "/api/fdc/search": {
+          target: "https://api.nal.usda.gov",
+          changeOrigin: true,
+          secure: true,
+          rewrite: (p) => `/fdc/v1/foods/search?api_key=${encodeURIComponent(apiKey)}`,
+        },
+        "/api/fdc/food": {
+          target: "https://api.nal.usda.gov",
+          changeOrigin: true,
+          secure: true,
+          rewrite: (p) => {
+            const rest = p.replace(/^\/api\/fdc\/food/, "");
+            return `/fdc/v1/food${rest}?api_key=${encodeURIComponent(apiKey)}`;
+          },
+        },
+      } : undefined,
+    },
   plugins: [
     react(),
     VitePWA({
@@ -59,4 +82,5 @@ export default defineConfig({
       },
     }),
   ],
+  };
 });
