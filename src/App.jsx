@@ -8,7 +8,7 @@ import { FoodsModal } from "./FoodsModal.jsx";
 import { EditFoodModal } from "./EditFoodModal.jsx";
 
 export default function App() {
-  const { foods, targets, log, totals, addFood, updateFood, incrementFoodUse, addEntry, removeEntry, setTargets } = useMacroStore();
+  const { foods, targets, log, totals, searchPicks, addFood, updateFood, incrementFoodUse, recordSearchPick, addEntry, removeEntry, setTargets } = useMacroStore();
 
   const [phase,        setPhase]        = useState("code"); // "code" | "qty"
   const [input,        setInput]        = useState("");
@@ -44,13 +44,14 @@ export default function App() {
     if (phase === "code") {
       const q = normalizeQuery(input);
       if (!q) return;
-      const food = topFoodMatch(foods, input);
+      const food = topFoodMatch(foods, input, searchPicks);
       if (!food) {
         setPendingName(input.trim());
         setShowAdd(true);
         setInput("");
         return;
       }
+      recordSearchPick(input, food.id);
       setSelectedFood(food);
       setInput(String(food.defaultQty));
       setPhase("qty");
@@ -80,6 +81,14 @@ export default function App() {
     setPhase("code"); setInput(""); setSelectedFood(null); setError("");
   };
 
+  const selectFoodForEntry = (food) => {
+    recordSearchPick(input, food.id);
+    setSelectedFood(food);
+    setInput(String(food.defaultQty));
+    setPhase("qty");
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
   // ── Preview macros while typing weight ──────────────────────────────────────
   const preview = (() => {
     if (phase !== "qty" || !selectedFood) return null;
@@ -93,9 +102,12 @@ export default function App() {
     if (phase !== "code") return { query: "", ranked: [] };
     const q = normalizeQuery(input);
     if (!q) return { query: "", ranked: [] };
-    const ranked = rankFoodMatches(foods, input);
+    const ranked = rankFoodMatches(foods, input, searchPicks);
     return { query: q, ranked };
-  }, [phase, input, foods]);
+  }, [phase, input, foods, searchPicks]);
+
+  const MATCH_LIST_CAP = 30;
+  const rankedForList = nameMatchPreview.ranked.slice(0, MATCH_LIST_CAP);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   const scrollPaddingBottom = phase === "qty" ? keyboardHeight + 72 : 0;
@@ -202,17 +214,42 @@ export default function App() {
 
           {/* Live preview / error */}
           {phase === "code" && nameMatchPreview.query && !error && (
-            <div style={{ fontSize: 10, marginTop: 6, letterSpacing: 0.5, color: nameMatchPreview.ranked.length ? "#c8f542" : "#666" }}>
+            <div style={{ marginTop: 8 }}>
               {nameMatchPreview.ranked.length > 0 ? (
                 <>
-                  TOP: <span style={{ color: "#fff" }}>{nameMatchPreview.ranked[0].name}</span>
-                  {nameMatchPreview.ranked.length > 1 && (
-                    <span style={{ color: "#444" }}> · {nameMatchPreview.ranked.length} matches</span>
-                  )}
-                  <span style={{ color: "#444" }}> · submit to log</span>
+                  <div style={{ fontSize: 9, color: "#444", letterSpacing: 0.5, marginBottom: 6 }}>
+                    Enter / FIND = top · {nameMatchPreview.ranked.length} match{nameMatchPreview.ranked.length === 1 ? "" : "es"}
+                    {nameMatchPreview.ranked.length > MATCH_LIST_CAP ? ` (showing ${MATCH_LIST_CAP})` : ""}
+                  </div>
+                  <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid #222", borderRadius: 4 }}>
+                    {rankedForList.map((f, i) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => selectFoodForEntry(f)}
+                        style={{
+                          width: "100%",
+                          textAlign: "left",
+                          background: i === 0 ? "#1a1a12" : "#141414",
+                          border: "none",
+                          borderBottom: "1px solid #1a1a1a",
+                          padding: "10px 12px",
+                          cursor: "pointer",
+                          fontFamily: "'IBM Plex Mono', monospace",
+                        }}
+                      >
+                        <div style={{ fontSize: 11, color: i === 0 ? "#c8f542" : "#ccc" }}>
+                          {i === 0 && <span style={{ color: "#666", marginRight: 6 }}>▸</span>}
+                          {f.name}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </>
               ) : (
-                <>NEW: <span style={{ color: "#fff" }}>{input.trim()}</span> · submit to create</>
+                <div style={{ fontSize: 10, letterSpacing: 0.5, color: "#666" }}>
+                  NEW: <span style={{ color: "#fff" }}>{input.trim()}</span> · submit to create
+                </div>
               )}
             </div>
           )}
