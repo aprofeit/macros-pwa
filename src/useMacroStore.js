@@ -14,6 +14,22 @@ function migrateFoods(list) {
   });
 }
 
+function mergeSeedFoods(userFoods, seedFoods) {
+  const userList = Array.isArray(userFoods) ? userFoods : [];
+  const seeds = Array.isArray(seedFoods) ? seedFoods : [];
+  const byId = new Map(userList.map((f) => [f.id, f]));
+  const seedIds = new Set(seeds.map((s) => s.id));
+  const out = [];
+  for (const s of seeds) {
+    const existing = byId.get(s.id);
+    out.push({ ...s, useCount: existing?.useCount ?? 0 });
+  }
+  for (const f of userList) {
+    if (!seedIds.has(f.id)) out.push(f);
+  }
+  return out;
+}
+
 function load(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -28,7 +44,11 @@ function todayKey() {
 }
 
 export function useMacroStore() {
-  const [foods,   setFoodsRaw]   = useState(() => migrateFoods(load("macros:foods", seedFoods)));
+  const [foods,   setFoodsRaw]   = useState(() => {
+    const stored = load("macros:foods", null);
+    const userList = migrateFoods(Array.isArray(stored) ? stored : []);
+    return mergeSeedFoods(userList, seedFoods);
+  });
   const [targets, setTargetsRaw] = useState(() => load("macros:targets", DEFAULT_TARGETS));
   const [log,     setLogRaw]     = useState(() => load(`macros:log:${todayKey()}`, []));
   const [searchPicks, setSearchPicksRaw] = useState(() => load("macros:searchPicks", {}));
