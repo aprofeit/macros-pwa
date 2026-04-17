@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { hasFdcKey, fdcSearchFoods, fdcGetFood, extractPer100gMacros } from "./fdc.js";
 
 const FIELDS = [
-  ["code",       "SHORTHAND",     "ck",            "text"],
   ["name",       "FOOD NAME",     "Chicken breast", "text"],
   ["protein",    "PROTEIN /100g", "31",             "decimal"],
   ["fat",        "FAT /100g",     "3.6",            "decimal"],
@@ -11,12 +10,13 @@ const FIELDS = [
   ["defaultQty", "DEFAULT QTY (g)", "150",          "decimal"],
 ];
 
-export function AddFoodModal({ initialCode = "", onSave, onCancel }) {
+export function AddFoodModal({ initialName = "", onSave, onCancel }) {
   const [mode, setMode] = useState("manual"); // manual | search
-  const [form, setForm] = useState({
-    code: initialCode, name: "", protein: "", fat: "",
+  const [form, setForm] = useState(() => ({
+    name: initialName,
+    protein: "", fat: "",
     carbs: "", kcal: "", defaultQty: "100",
-  });
+  }));
   const [searchQuery, setSearchQuery] = useState("");
   const [searchStatus, setSearchStatus] = useState("idle"); // idle | loading | ready | error
   const [searchResults, setSearchResults] = useState([]);
@@ -32,7 +32,7 @@ export function AddFoodModal({ initialCode = "", onSave, onCancel }) {
   }, [mode]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const valid = ["code","name","protein","fat","carbs","kcal"].every(k => String(form[k]).trim() !== "");
+  const valid = ["name","protein","fat","carbs","kcal"].every(k => String(form[k]).trim() !== "");
 
   const fdcEnabled = useMemo(() => hasFdcKey(), []);
 
@@ -79,9 +79,10 @@ export function AddFoodModal({ initialCode = "", onSave, onCancel }) {
 
   const pickSelected = () => {
     if (!selectedResult || !selectedMacros) return;
+    const nm = selectedMacros.name || selectedResult.description || "";
     setForm(f => ({
       ...f,
-      name: selectedMacros.name || f.name,
+      name: nm,
       protein: selectedMacros.protein == null ? f.protein : String(selectedMacros.protein),
       fat: selectedMacros.fat == null ? f.fat : String(selectedMacros.fat),
       carbs: selectedMacros.carbs == null ? f.carbs : String(selectedMacros.carbs),

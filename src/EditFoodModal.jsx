@@ -1,7 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 
 const FIELDS = [
-  ["code",       "SHORTHAND",       "ck",               "text"],
   ["name",       "FOOD NAME",       "Chicken breast",   "text"],
   ["protein",    "PROTEIN /100g",   "31",               "decimal"],
   ["fat",        "FAT /100g",       "3.6",              "decimal"],
@@ -10,14 +9,9 @@ const FIELDS = [
   ["defaultQty", "DEFAULT QTY (g)", "150",              "decimal"],
 ];
 
-function normCode(v) {
-  return String(v ?? "").trim().toLowerCase();
-}
-
 export function EditFoodModal({ food, foods, onSave, onCancel }) {
   const [form, setForm] = useState(() => ({
     id: food.id,
-    code: food.code ?? "",
     name: food.name ?? "",
     protein: String(food.protein ?? ""),
     fat: String(food.fat ?? ""),
@@ -26,19 +20,19 @@ export function EditFoodModal({ food, foods, onSave, onCancel }) {
     defaultQty: String(food.defaultQty ?? "100"),
   }));
 
-  const codeRef = useRef();
-  useEffect(() => { codeRef.current?.focus(); }, []);
+  const nameRef = useRef();
+  useEffect(() => { nameRef.current?.focus(); }, []);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const normalizedCode = useMemo(() => normCode(form.code), [form.code]);
-  const duplicateCode = useMemo(
-    () => foods.some(f => normCode(f.code) === normalizedCode && f.id !== food.id),
-    [foods, normalizedCode, food.id]
+  const normalizedName = useMemo(() => String(form.name ?? "").trim().toLowerCase(), [form.name]);
+  const duplicateName = useMemo(
+    () => foods.some(f => String(f.name ?? "").trim().toLowerCase() === normalizedName && f.id !== food.id),
+    [foods, normalizedName, food.id]
   );
 
   const requiredOk = useMemo(() => {
-    return ["code", "name", "protein", "fat", "carbs", "kcal"].every(k => String(form[k]).trim() !== "");
+    return ["name", "protein", "fat", "carbs", "kcal"].every(k => String(form[k]).trim() !== "");
   }, [form]);
 
   const numericOk = useMemo(() => {
@@ -46,13 +40,12 @@ export function EditFoodModal({ food, foods, onSave, onCancel }) {
     return nums.every(n => Number.isFinite(n));
   }, [form]);
 
-  const valid = requiredOk && numericOk && !duplicateCode && normalizedCode.length > 0;
+  const valid = requiredOk && numericOk && !duplicateName && normalizedName.length > 0;
 
   const handleSave = () => {
     if (!valid) return;
     onSave({
       id: food.id,
-      code: normalizedCode,
       name: String(form.name).trim(),
       protein: Number(form.protein),
       fat: Number(form.fat),
@@ -82,7 +75,7 @@ export function EditFoodModal({ food, foods, onSave, onCancel }) {
             <div key={key} style={{ gridColumn: key === "name" ? "1/-1" : "auto" }}>
               <div style={{ fontSize: 9, color: "#555", letterSpacing: 1.5, marginBottom: 4 }}>{label}</div>
               <input
-                ref={key === "code" ? codeRef : null}
+                ref={key === "name" ? nameRef : null}
                 value={form[key]}
                 onChange={e => set(key, e.target.value)}
                 placeholder={placeholder}
@@ -101,9 +94,9 @@ export function EditFoodModal({ food, foods, onSave, onCancel }) {
           ))}
         </div>
 
-        {duplicateCode && (
+        {duplicateName && (
           <div style={{ marginTop: 10, fontSize: 10, color: "#f44", letterSpacing: 0.5 }}>
-            code already exists — choose a different shortcode
+            a food with this name already exists
           </div>
         )}
 
@@ -132,4 +125,3 @@ export function EditFoodModal({ food, foods, onSave, onCancel }) {
     </div>
   );
 }
-

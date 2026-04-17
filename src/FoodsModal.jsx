@@ -3,11 +3,9 @@ function formatMacros(food) {
 }
 
 export function FoodsModal({ foods, onEdit, onCancel }) {
-  const sorted = [...foods].sort((a, b) => {
-    const ac = String(a.code ?? "").localeCompare(String(b.code ?? ""));
-    if (ac !== 0) return ac;
-    return String(a.name ?? "").localeCompare(String(b.name ?? ""));
-  });
+  const sorted = [...foods].sort((a, b) =>
+    String(a.name ?? "").localeCompare(String(b.name ?? ""))
+  );
 
   return (
     <div style={{
@@ -49,9 +47,7 @@ export function FoodsModal({ foods, onEdit, onCancel }) {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 12, color: "#ddd" }}>
-                    <span style={{ color: "#c8f542", fontWeight: 700 }}>{f.code}</span>{" "}
-                    <span style={{ color: "#777" }}>·</span>{" "}
-                    <span style={{ color: "#ddd" }}>{f.name}</span>
+                    <span style={{ color: "#c8f542", fontWeight: 700 }}>{f.name}</span>
                   </div>
                   <div style={{ fontSize: 10, color: "#444", marginTop: 2 }}>
                     {formatMacros(f)} /100g
