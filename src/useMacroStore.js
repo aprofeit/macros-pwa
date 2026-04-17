@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import seedFoods from "./seedFoods.json";
+import { normalizeQuery } from "./matchFood.js";
 
 const DEFAULT_TARGETS = { protein: 165, fat: 50, carbs: 220, kcal: 1800 };
 
@@ -30,10 +31,25 @@ export function useMacroStore() {
   const [foods,   setFoodsRaw]   = useState(() => migrateFoods(load("macros:foods", seedFoods)));
   const [targets, setTargetsRaw] = useState(() => load("macros:targets", DEFAULT_TARGETS));
   const [log,     setLogRaw]     = useState(() => load(`macros:log:${todayKey()}`, []));
+  const [searchPicks, setSearchPicksRaw] = useState(() => load("macros:searchPicks", {}));
 
   useEffect(() => { localStorage.setItem("macros:foods",             JSON.stringify(foods));   }, [foods]);
   useEffect(() => { localStorage.setItem("macros:targets",           JSON.stringify(targets)); }, [targets]);
   useEffect(() => { localStorage.setItem(`macros:log:${todayKey()}`, JSON.stringify(log));     }, [log]);
+  useEffect(() => { localStorage.setItem("macros:searchPicks",      JSON.stringify(searchPicks)); }, [searchPicks]);
+
+  const recordSearchPick = useCallback((query, foodId) => {
+    const key = normalizeQuery(query);
+    if (!key) return;
+    const id = String(foodId);
+    setSearchPicksRaw((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] || {}),
+        [id]: ((prev[key] || {})[id] || 0) + 1,
+      },
+    }));
+  }, []);
 
   const addFood    = (food) => setFoodsRaw(prev => [...prev, { ...food, id: Date.now(), useCount: food.useCount ?? 0 }]);
   const updateFood = (food) => setFoodsRaw(prev => prev.map(f => (f.id === food.id ? { ...f, ...food } : f)));
@@ -54,7 +70,20 @@ export function useMacroStore() {
     { protein: 0, fat: 0, carbs: 0, kcal: 0 }
   );
 
-  return { foods, targets, log, totals, addFood, updateFood, incrementFoodUse, addEntry, removeEntry, setTargets };
+  return {
+    foods,
+    targets,
+    log,
+    totals,
+    searchPicks,
+    addFood,
+    updateFood,
+    incrementFoodUse,
+    recordSearchPick,
+    addEntry,
+    removeEntry,
+    setTargets,
+  };
 }
 
 export function calcMacros(food, grams) {

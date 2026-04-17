@@ -3,25 +3,71 @@ export function normalizeQuery(q) {
   return String(q ?? "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+function queryTokens(normalizedQuery) {
+  return normalizedQuery.split(/\s+/).filter(Boolean);
+}
+
+/** Every token must appear as a substring of the normalized name (order-independent). */
+export function foodMatchesNameQuery(nameNorm, tokens) {
+  if (tokens.length === 0) return false;
+  return tokens.every((t) => nameNorm.includes(t));
+}
+
+const PHRASE_BONUS = 1000;
+const W_USE = 2;
+const W_PICK = 12;
+
 /**
- * Foods whose name (normalized) starts with the normalized query. Name-only; ignores `code`.
+ * Deterministic relevance: phrase substring bonus + sum of 1000/(index+1) per token.
  */
-export function rankFoodMatches(foods, query) {
-  const nq = normalizeQuery(query);
-  if (!nq) return [];
+function relevanceScore(nameNorm, fullQueryNorm, tokens) {
+  let s = 0;
+  if (fullQueryNorm && nameNorm.includes(fullQueryNorm)) s += PHRASE_BONUS;
+  for (const t of tokens) {
+    const i = nameNorm.indexOf(t);
+    if (i < 0) return -Infinity;
+    s += 1000 / (i + 1);
+  }
+  return s;
+}
+
+function totalScore(food, nameNorm, fullQueryNorm, tokens, queryKey, pickCounts) {
+  const rel = relevanceScore(nameNorm, fullQueryNorm, tokens);
+  if (!Number.isFinite(rel)) return -Infinity;
+  const id = String(food.id);
+  const pick = (pickCounts?.[queryKey]?.[id] ?? 0);
+  const use = food.useCount ?? 0;
+  return rel + W_USE * use + W_PICK * pick;
+}
+
+/**
+ * Foods matching all query tokens as substrings; sorted by match quality + useCount + search pick history.
+ * @param {object} pickCounts - nested map: queryKey -> foodId string -> count
+ */
+export function rankFoodMatches(foods, query, pickCounts = {}) {
+  const fullQueryNorm = normalizeQuery(query);
+  if (!fullQueryNorm) return [];
+  const tokens = queryTokens(fullQueryNorm);
+  if (tokens.length === 0) return [];
+
   const matches = (Array.isArray(foods) ? foods : []).filter((f) => {
-    const name = normalizeQuery(f?.name ?? "");
-    return name.startsWith(nq);
+    const nameNorm = normalizeQuery(f?.name ?? "");
+    return foodMatchesNameQuery(nameNorm, tokens);
   });
+
   matches.sort((a, b) => {
-    const uc = (b.useCount ?? 0) - (a.useCount ?? 0);
-    if (uc !== 0) return uc;
+    const nameA = normalizeQuery(a?.name ?? "");
+    const nameB = normalizeQuery(b?.name ?? "");
+    const sa = totalScore(a, nameA, fullQueryNorm, tokens, fullQueryNorm, pickCounts);
+    const sb = totalScore(b, nameB, fullQueryNorm, tokens, fullQueryNorm, pickCounts);
+    if (sb !== sa) return sb - sa;
     return String(a.name ?? "").localeCompare(String(b.name ?? ""));
   });
+
   return matches;
 }
 
-export function topFoodMatch(foods, query) {
-  const ranked = rankFoodMatches(foods, query);
+export function topFoodMatch(foods, query, pickCounts = {}) {
+  const ranked = rankFoodMatches(foods, query, pickCounts);
   return ranked[0] ?? null;
 }
