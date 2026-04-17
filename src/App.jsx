@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useMacroStore, calcMacros } from "./useMacroStore.js";
+import { normalizeQuery, rankFoodMatches, topFoodMatch } from "./matchFood.js";
 import { MacroBar } from "./MacroBar.jsx";
 import { AddFoodModal } from "./AddFoodModal.jsx";
 import { EditTargetsModal } from "./EditTargetsModal.jsx";
@@ -7,34 +8,45 @@ import { FoodsModal } from "./FoodsModal.jsx";
 import { EditFoodModal } from "./EditFoodModal.jsx";
 
 export default function App() {
-  const { foods, targets, log, totals, addFood, updateFood, addEntry, removeEntry, setTargets } = useMacroStore();
+  const { foods, targets, log, totals, addFood, updateFood, incrementFoodUse, addEntry, removeEntry, setTargets } = useMacroStore();
 
   const [phase,        setPhase]        = useState("code"); // "code" | "qty"
   const [input,        setInput]        = useState("");
   const [selectedFood, setSelectedFood] = useState(null);
   const [error,        setError]        = useState("");
   const [showAdd,      setShowAdd]      = useState(false);
-  const [pendingCode,  setPendingCode]  = useState("");
+  const [pendingName,  setPendingName]  = useState("");
   const [showTargets,  setShowTargets]  = useState(false);
-  const [showLog,      setShowLog]      = useState(false);
   const [showFoods,    setShowFoods]    = useState(false);
   const [editingFood,  setEditingFood]  = useState(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const inputRef = useRef();
   useEffect(() => {
     if (!showAdd && !showTargets && !showFoods && !editingFood) inputRef.current?.focus();
   }, [phase, showAdd, showTargets, showFoods, editingFood]);
 
+  useEffect(() => {
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    if (!vv) return;
+    const update = () => {
+      setKeyboardHeight(Math.max(0, window.innerHeight - vv.height));
+    };
+    update();
+    vv.addEventListener("resize", update);
+    return () => vv.removeEventListener("resize", update);
+  }, []);
+
   // ── Entry submission ────────────────────────────────────────────────────────
   const submit = () => {
     setError("");
 
     if (phase === "code") {
-      const code = input.trim().toLowerCase();
-      if (!code) return;
-      const food = foods.find(f => f.code === code);
+      const q = normalizeQuery(input);
+      if (!q) return;
+      const food = topFoodMatch(foods, input);
       if (!food) {
-        setPendingCode(code);
+        setPendingName(input.trim());
         setShowAdd(true);
         setInput("");
         return;
@@ -46,7 +58,13 @@ export default function App() {
     } else {
       const grams = parseFloat(input);
       if (!grams || grams <= 0) { setError("invalid weight"); return; }
-      addEntry({ ...calcMacros(selectedFood, grams), foodName: selectedFood.name, code: selectedFood.code, grams });
+      addEntry({
+        ...calcMacros(selectedFood, grams),
+        foodName: selectedFood.name,
+        foodId: selectedFood.id,
+        grams,
+      });
+      incrementFoodUse(selectedFood.id);
       setInput("");
       setSelectedFood(null);
       setPhase("code");
@@ -62,13 +80,6 @@ export default function App() {
     setPhase("code"); setInput(""); setSelectedFood(null); setError("");
   };
 
-  const tapFood = (food) => {
-    setSelectedFood(food);
-    setInput(String(food.defaultQty));
-    setPhase("qty");
-    setTimeout(() => inputRef.current?.focus(), 50);
-  };
-
   // ── Preview macros while typing weight ──────────────────────────────────────
   const preview = (() => {
     if (phase !== "qty" || !selectedFood) return null;
@@ -77,32 +88,41 @@ export default function App() {
     return calcMacros(selectedFood, g);
   })();
 
-  // ── Live code match feedback ────────────────────────────────────────────────
-  const codeLookup = useMemo(() => {
-    if (phase !== "code") return { code: "", food: null };
-    const code = input.trim().toLowerCase();
-    if (!code) return { code: "", food: null };
-    const food = foods.find(f => f.code === code) ?? null;
-    return { code, food };
+  // ── Live name match feedback (prefix + usage rank) ─────────────────────────
+  const nameMatchPreview = useMemo(() => {
+    if (phase !== "code") return { query: "", ranked: [] };
+    const q = normalizeQuery(input);
+    if (!q) return { query: "", ranked: [] };
+    const ranked = rankFoodMatches(foods, input);
+    return { query: q, ranked };
   }, [phase, input, foods]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
+  const scrollPaddingBottom = phase === "qty" ? keyboardHeight + 72 : 0;
+
   return (
     <div style={{
       background: "#0a0a0a", minHeight: "100dvh", color: "#fff",
       fontFamily: "'IBM Plex Mono', monospace",
       maxWidth: 430, margin: "0 auto",
       display: "flex", flexDirection: "column",
+      position: "relative",
     }}>
       <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet" />
 
+      <div style={{
+        flex: 1,
+        minHeight: 0,
+        overflowY: "auto",
+        paddingBottom: scrollPaddingBottom,
+      }}>
       {/* ── Header ── */}
       <div style={{ padding: "16px 16px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, letterSpacing: 3, color: "#c8f542" }}>
           MACROS
         </span>
         <div style={{ display: "flex", gap: 8 }}>
-          <Btn active={showLog} onClick={() => setShowLog(s => !s)}>LOG ({log.length})</Btn>
+          <Btn onClick={() => { setPendingName(""); setShowAdd(true); }}>+ ADD</Btn>
           <Btn active={showFoods} onClick={() => setShowFoods(true)}>FOODS</Btn>
           <Btn onClick={() => setShowTargets(true)}>TARGETS</Btn>
         </div>
@@ -140,19 +160,20 @@ export default function App() {
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
             <div style={{ fontSize: 10, color: phase === "qty" ? "#c8f542" : "#444", letterSpacing: 2 }}>
-              {phase === "qty" ? selectedFood?.name.toUpperCase() : "FOOD CODE"}
+              {phase === "qty" ? selectedFood?.name.toUpperCase() : "FOOD"}
             </div>
             {phase === "qty" && <div style={{ fontSize: 9, color: "#444" }}>GRAMS</div>}
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <input
+              key={phase}
               ref={inputRef}
               value={input}
               onChange={e => { setInput(e.target.value); setError(""); }}
               onKeyDown={handleKey}
-              placeholder={phase === "code" ? "ck, oa, eg…" : `default: ${selectedFood?.defaultQty}g`}
-              inputMode={phase === "qty" ? "decimal" : "text"}
+              placeholder={phase === "code" ? "type name…" : `default: ${selectedFood?.defaultQty}g`}
+              inputMode="text"
               autoCapitalize="none"
               autoCorrect="off"
               autoComplete="off"
@@ -163,26 +184,35 @@ export default function App() {
                 outline: "none", caretColor: "#c8f542",
               }}
             />
-            <button
-              onClick={submit}
-              style={{
-                background: "#c8f542", border: "none", color: "#000",
-                fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700,
-                fontSize: 11, letterSpacing: 1, padding: "8px 14px",
-                borderRadius: 3, cursor: "pointer", flexShrink: 0,
-              }}
-            >
-              {phase === "code" ? "FIND →" : "LOG ✓"}
-            </button>
+            {phase === "code" && (
+              <button
+                type="button"
+                onClick={submit}
+                style={{
+                  background: "#c8f542", border: "none", color: "#000",
+                  fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700,
+                  fontSize: 11, letterSpacing: 1, padding: "8px 14px",
+                  borderRadius: 3, cursor: "pointer", flexShrink: 0,
+                }}
+              >
+                FIND →
+              </button>
+            )}
           </div>
 
           {/* Live preview / error */}
-          {phase === "code" && codeLookup.code && !error && (
-            <div style={{ fontSize: 10, marginTop: 6, letterSpacing: 0.5, color: codeLookup.food ? "#c8f542" : "#666" }}>
-              {codeLookup.food ? (
-                <>FOUND: <span style={{ color: "#fff" }}>{codeLookup.food.name}</span> · submit to log</>
+          {phase === "code" && nameMatchPreview.query && !error && (
+            <div style={{ fontSize: 10, marginTop: 6, letterSpacing: 0.5, color: nameMatchPreview.ranked.length ? "#c8f542" : "#666" }}>
+              {nameMatchPreview.ranked.length > 0 ? (
+                <>
+                  TOP: <span style={{ color: "#fff" }}>{nameMatchPreview.ranked[0].name}</span>
+                  {nameMatchPreview.ranked.length > 1 && (
+                    <span style={{ color: "#444" }}> · {nameMatchPreview.ranked.length} matches</span>
+                  )}
+                  <span style={{ color: "#444" }}> · submit to log</span>
+                </>
               ) : (
-                <>NEW: <span style={{ color: "#fff" }}>{codeLookup.code}</span> · submit to create</>
+                <>NEW: <span style={{ color: "#fff" }}>{input.trim()}</span> · submit to create</>
               )}
             </div>
           )}
@@ -212,65 +242,72 @@ export default function App() {
         )}
       </div>
 
-      {/* ── Quick code chips ── */}
-      <div style={{ padding: "14px 16px 0" }}>
-        <div style={{ fontSize: 9, color: "#333", letterSpacing: 2, marginBottom: 8 }}>QUICK CODES</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {foods.map(f => (
-            <button key={f.id} onClick={() => tapFood(f)} style={{
-              background: "#111", border: "1px solid #222", color: "#666",
-              fontFamily: "'IBM Plex Mono', monospace", fontSize: 11,
-              padding: "5px 10px", borderRadius: 3, cursor: "pointer", letterSpacing: 0.5,
+      {/* ── Log ── */}
+      <div style={{ margin: "14px 16px 0", flex: 1 }}>
+        <div style={{ fontSize: 9, color: "#333", letterSpacing: 2, marginBottom: 8 }}>TODAY'S LOG</div>
+        {log.length === 0 ? (
+          <div style={{ fontSize: 11, color: "#333", padding: "12px 0" }}>nothing logged yet</div>
+        ) : (
+          log.map(e => (
+            <div key={e.id} style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "8px 0", borderBottom: "1px solid #161616",
             }}>
-              {f.code}
-            </button>
-          ))}
-          <button onClick={() => { setPendingCode(""); setShowAdd(true); }} style={{
-            background: "none", border: "1px dashed #333", color: "#444",
-            fontFamily: "'IBM Plex Mono', monospace", fontSize: 11,
-            padding: "5px 10px", borderRadius: 3, cursor: "pointer",
-          }}>
-            + add
-          </button>
-        </div>
+              <div>
+                <div style={{ fontSize: 12, color: "#ccc" }}>
+                  {e.foodName} <span style={{ color: "#444" }}>{e.grams}g</span>
+                </div>
+                <div style={{ fontSize: 10, color: "#444", marginTop: 2 }}>
+                  P {e.protein} · F {e.fat} · C {e.carbs} · {e.kcal}k
+                </div>
+              </div>
+              <button onClick={() => removeEntry(e.id)} style={{
+                background: "none", border: "none", color: "#333",
+                fontSize: 14, cursor: "pointer", padding: "4px 8px",
+              }}>✕</button>
+            </div>
+          ))
+        )}
       </div>
 
-      {/* ── Log ── */}
-      {showLog && (
-        <div style={{ margin: "14px 16px 0", flex: 1 }}>
-          <div style={{ fontSize: 9, color: "#333", letterSpacing: 2, marginBottom: 8 }}>TODAY'S LOG</div>
-          {log.length === 0 ? (
-            <div style={{ fontSize: 11, color: "#333", padding: "12px 0" }}>nothing logged yet</div>
-          ) : (
-            log.map(e => (
-              <div key={e.id} style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "8px 0", borderBottom: "1px solid #161616",
-              }}>
-                <div>
-                  <div style={{ fontSize: 12, color: "#ccc" }}>
-                    {e.foodName} <span style={{ color: "#444" }}>{e.grams}g</span>
-                  </div>
-                  <div style={{ fontSize: 10, color: "#444", marginTop: 2 }}>
-                    P {e.protein} · F {e.fat} · C {e.carbs} · {e.kcal}k
-                  </div>
-                </div>
-                <button onClick={() => removeEntry(e.id)} style={{
-                  background: "none", border: "none", color: "#333",
-                  fontSize: 14, cursor: "pointer", padding: "4px 8px",
-                }}>✕</button>
-              </div>
-            ))
-          )}
+      <div style={{ height: 40 }} />
+
+      </div>
+
+      {phase === "qty" && (
+        <div style={{
+          position: "fixed",
+          bottom: keyboardHeight,
+          left: 0,
+          right: 0,
+          zIndex: 50,
+        }}>
+          <button
+            type="button"
+            onClick={submit}
+            style={{
+              width: "100%",
+              height: 56,
+              margin: 0,
+              border: "none",
+              background: "#c8f542",
+              color: "#000",
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontWeight: 700,
+              fontSize: 15,
+              letterSpacing: 1,
+              cursor: "pointer",
+            }}
+          >
+            LOG ✓
+          </button>
         </div>
       )}
-
-      <div style={{ height: 40 }} />
 
       {/* ── Modals ── */}
       {showAdd && (
         <AddFoodModal
-          initialCode={pendingCode}
+          initialName={pendingName}
           onCancel={() => { setShowAdd(false); setInput(""); }}
           onSave={food => {
             addFood(food);
