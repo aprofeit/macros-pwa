@@ -251,6 +251,7 @@ export default function App() {
             <input
               key={phase}
               ref={inputRef}
+              name="food-entry"
               value={input}
               onChange={e => {
                 setInput(e.target.value);
@@ -262,7 +263,7 @@ export default function App() {
               inputMode="text"
               autoCapitalize="none"
               autoCorrect="off"
-              autoComplete="off"
+              autoComplete={phase === "code" ? "one-time-code" : "off"}
               spellCheck={false}
               style={{
                 flex: 1, background: "none", border: "none", color: "#fff",
