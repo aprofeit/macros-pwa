@@ -12,6 +12,10 @@ const FIELDS_AFTER_KCAL = [
   ["defaultQty",           "DEFAULT QTY (g)", "150",                "decimal"],
 ];
 
+function selectAllOnFocus(e) {
+  e.currentTarget.select();
+}
+
 function fmtMacroStr(n) {
   if (!Number.isFinite(n)) return "";
   const r = Math.round(n * 100) / 100;
@@ -123,6 +127,7 @@ export function EditFoodModal({ food, foods, onSave, onCancel }) {
                 ref={key === "name" ? nameRef : null}
                 value={form[key]}
                 onChange={e => set(key, e.target.value)}
+                onFocus={selectAllOnFocus}
                 placeholder={placeholder}
                 inputMode={inputMode}
                 autoCapitalize="none"
@@ -153,6 +158,7 @@ export function EditFoodModal({ food, foods, onSave, onCancel }) {
               <input
                 value={form[key]}
                 onChange={e => set(key, e.target.value)}
+                onFocus={selectAllOnFocus}
                 placeholder={placeholder}
                 inputMode={inputMode}
                 autoCapitalize="none"

@@ -13,6 +13,10 @@ const FIELDS_AFTER_KCAL = [
   ["defaultQty",           "DEFAULT QTY (g)", "150",            "decimal"],
 ];
 
+function selectAllOnFocus(e) {
+  e.currentTarget.select();
+}
+
 export function AddFoodModal({ initialName = "", onSave, onCancel }) {
   const [mode, setMode] = useState("manual"); // manual | search
   const [form, setForm] = useState(() => ({
@@ -304,6 +308,7 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
                   ref={key === "name" ? nameRef : null}
                   value={form[key]}
                   onChange={e => set(key, e.target.value)}
+                  onFocus={selectAllOnFocus}
                   placeholder={placeholder}
                   inputMode={inputMode}
                   autoCapitalize="none"
@@ -334,6 +339,7 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
                 <input
                   value={form[key]}
                   onChange={e => set(key, e.target.value)}
+                  onFocus={selectAllOnFocus}
                   placeholder={placeholder}
                   inputMode={inputMode}
                   autoCapitalize="none"
