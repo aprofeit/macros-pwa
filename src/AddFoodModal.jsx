@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { hasFdcKey, fdcSearchFoods, fdcGetFood, extractPer100gMacros } from "./fdc.js";
+import { hasFdcKey, fdcGetFood, extractPer100gMacros } from "./fdc.js";
+import { searchAllSources } from "./foodSearch.js";
 import { macrosEnteredToPer100g, kcalFromMacroTargets, macroFieldGrams } from "./useMacroStore.js";
 import { evaluateMathExpression } from "./evaluateMathExpression.js";
 
@@ -79,15 +80,15 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
     }
     setSearchStatus("loading");
     const t = setTimeout(() => {
-      fdcSearchFoods(q, { pageSize: 10 })
-        .then(foods => {
-          setSearchResults(foods);
+      searchAllSources(q, { pageSize: 10 })
+        .then(results => {
+          setSearchResults(results);
           setSearchStatus("ready");
         })
         .catch(err => {
           setSearchResults([]);
           setSearchStatus("error");
-          setSearchError(err?.message ?? "USDA search failed");
+          setSearchError(err?.message ?? "Search failed");
         });
     }, 350);
     return () => clearTimeout(t);
@@ -115,7 +116,7 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
 
   const pickSelected = () => {
     if (!selectedResult || !selectedMacros) return;
-    const nm = selectedMacros.name || selectedResult.description || "";
+    const nm = selectedMacros.name || selectedResult.name || "";
     setForm(f => ({
       ...f,
       name: nm,
@@ -136,13 +137,17 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
   };
 
   const loadMacrosForResult = async (r) => {
-    if (!r?.fdcId) return;
+    if (r.source === "OFF") {
+      setSelectedMacros(r.macros);
+      setImportStatus("idle");
+      return;
+    }
+    if (!r._raw?.fdcId) return;
     setImportStatus("loading");
     setImportError("");
     try {
-      const detail = await fdcGetFood(r.fdcId);
-      const extracted = extractPer100gMacros(detail);
-      setSelectedMacros(extracted);
+      const detail = await fdcGetFood(r._raw.fdcId);
+      setSelectedMacros(extractPer100gMacros(detail));
       setImportStatus("idle");
     } catch (e) {
       setImportStatus("error");
@@ -163,7 +168,7 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <span style={{ color: "#fff", fontSize: 13, fontWeight: 700, letterSpacing: 2 }}>
-            {mode === "search" ? "SEARCH USDA" : "NEW FOOD"}
+            {mode === "search" ? "SEARCH FOODS" : "NEW FOOD"}
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {mode === "manual" ? (
@@ -233,7 +238,7 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
                   <div style={{ marginTop: 10, borderTop: "1px solid #161616" }}>
                     {searchResults.map(r => (
                       <button
-                        key={r.fdcId}
+                        key={r.id}
                         onClick={() => {
                           setSelectedResult(r);
                           setSelectedMacros(null);
@@ -252,11 +257,15 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
                           fontFamily: "'IBM Plex Mono', monospace",
                         }}
                       >
-                        <div style={{ fontSize: 12, color: selectedResult?.fdcId === r.fdcId ? "#c8f542" : "#ddd" }}>
-                          {r.description}
+                        <div style={{ fontSize: 12, color: selectedResult?.id === r.id ? "#c8f542" : "#ddd" }}>
+                          {r.name}
                         </div>
                         <div style={{ fontSize: 10, color: "#444", marginTop: 2 }}>
-                          {r.brandOwner ? `${r.brandOwner} · ` : ""}{r.dataType}
+                          {r.brand ? `${r.brand} · ` : ""}
+                          <span style={{ color: r.source === "OFF" ? "#f9a" : "#8cf", fontWeight: 700, fontSize: 9, letterSpacing: 1 }}>
+                            {r.source}
+                          </span>
+                          {r.dataType ? ` · ${r.dataType}` : ""}
                         </div>
                       </button>
                     ))}
@@ -271,7 +280,7 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
                     )}
                     {importStatus !== "loading" && selectedMacros && (
                       <>
-                        <div style={{ fontSize: 12, color: "#ddd" }}>{selectedMacros.name || selectedResult.description}</div>
+                        <div style={{ fontSize: 12, color: "#ddd" }}>{selectedMacros.name || selectedResult.name}</div>
                         <div style={{ fontSize: 10, color: "#444", marginTop: 4 }}>
                           P {selectedMacros.protein ?? "—"} · F {selectedMacros.fat ?? "—"} · C {selectedMacros.carbs ?? "—"} ·{" "}
                           {selectedMacros.protein != null && selectedMacros.fat != null && selectedMacros.carbs != null
