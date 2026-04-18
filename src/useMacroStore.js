@@ -1,8 +1,26 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import seedFoods from "./seedFoods.json";
 import { normalizeQuery } from "./matchFood.js";
 
-const DEFAULT_TARGETS = { protein: 165, fat: 50, carbs: 220, kcal: 1800 };
+const DEFAULT_TARGETS = { protein: 165, fat: 50, carbs: 220 };
+
+export function kcalFromMacroTargets({ protein, fat, carbs }) {
+  const p = Number(protein);
+  const f = Number(fat);
+  const c = Number(carbs);
+  const safe = (x) => (Number.isFinite(x) ? x : 0);
+  return Math.round(safe(p) * 4 + safe(c) * 4 + safe(f) * 9);
+}
+
+function migrateTargets(loaded) {
+  const n = (key) => {
+    const x = loaded && typeof loaded === "object" ? loaded[key] : undefined;
+    const v = typeof x === "number" ? x : Number(x);
+    return Number.isFinite(v) ? v : DEFAULT_TARGETS[key];
+  };
+  if (!loaded || typeof loaded !== "object") return { ...DEFAULT_TARGETS };
+  return { protein: n("protein"), fat: n("fat"), carbs: n("carbs") };
+}
 
 function migrateFoods(list) {
   return (Array.isArray(list) ? list : []).map((f) => {
@@ -49,12 +67,18 @@ export function useMacroStore() {
     const userList = migrateFoods(Array.isArray(stored) ? stored : []);
     return mergeSeedFoods(userList, seedFoods);
   });
-  const [targets, setTargetsRaw] = useState(() => load("macros:targets", DEFAULT_TARGETS));
+  const [macroTargets, setMacroTargets] = useState(() =>
+    migrateTargets(load("macros:targets", null))
+  );
+  const targets = useMemo(
+    () => ({ ...macroTargets, kcal: kcalFromMacroTargets(macroTargets) }),
+    [macroTargets]
+  );
   const [log,     setLogRaw]     = useState(() => load(`macros:log:${todayKey()}`, []));
   const [searchPicks, setSearchPicksRaw] = useState(() => load("macros:searchPicks", {}));
 
   useEffect(() => { localStorage.setItem("macros:foods",             JSON.stringify(foods));   }, [foods]);
-  useEffect(() => { localStorage.setItem("macros:targets",           JSON.stringify(targets)); }, [targets]);
+  useEffect(() => { localStorage.setItem("macros:targets",           JSON.stringify(macroTargets)); }, [macroTargets]);
   useEffect(() => { localStorage.setItem(`macros:log:${todayKey()}`, JSON.stringify(log));     }, [log]);
   useEffect(() => { localStorage.setItem("macros:searchPicks",      JSON.stringify(searchPicks)); }, [searchPicks]);
 
@@ -78,7 +102,9 @@ export function useMacroStore() {
   ));
   const addEntry   = (entry) => setLogRaw(prev => [...prev, { ...entry, id: Date.now() }]);
   const removeEntry = (id)  => setLogRaw(prev => prev.filter(e => e.id !== id));
-  const setTargets  = (t)   => setTargetsRaw(t);
+  const setTargets = useCallback((t) => {
+    setMacroTargets(migrateTargets(t));
+  }, []);
 
   const totals = log.reduce(
     (acc, e) => ({

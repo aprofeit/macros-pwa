@@ -1,15 +1,20 @@
 import { useState } from "react";
+import { kcalFromMacroTargets } from "./useMacroStore.js";
 
 const FIELDS = [
   ["protein", "PROTEIN (g)", "#4af"],
   ["fat",     "FAT (g)",     "#f94"],
   ["carbs",   "CARBS (g)",   "#c8f542"],
-  ["kcal",    "CALORIES",    "#a8f"],
 ];
 
 export function EditTargetsModal({ targets, onSave, onCancel }) {
-  const [form, setForm] = useState({ ...targets });
+  const [form, setForm] = useState(() => ({
+    protein: targets.protein,
+    fat: targets.fat,
+    carbs: targets.carbs,
+  }));
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const derivedKcal = kcalFromMacroTargets(form);
 
   return (
     <div style={{
@@ -43,8 +48,19 @@ export function EditTargetsModal({ targets, onSave, onCancel }) {
           </div>
         ))}
 
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 9, color: "#a8f", letterSpacing: 1.5, marginBottom: 4 }}>CALORIES (AUTO)</div>
+          <div style={{
+            width: "100%", background: "#1a1a1a", border: "1px solid #333",
+            color: "#888", fontFamily: "'IBM Plex Mono', monospace",
+            fontSize: 16, padding: "10px 12px", borderRadius: 4,
+          }}>
+            {derivedKcal}
+          </div>
+        </div>
+
         <button
-          onClick={() => onSave(form)}
+          onClick={() => onSave({ protein: form.protein, fat: form.fat, carbs: form.carbs })}
           style={{
             marginTop: 8, width: "100%", background: "#c8f542", color: "#000",
             border: "none", fontFamily: "'IBM Plex Mono', monospace",
