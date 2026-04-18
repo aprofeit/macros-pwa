@@ -251,6 +251,7 @@ export default function App() {
             <input
               key={phase}
               ref={inputRef}
+              name="log-food"
               value={input}
               onChange={e => {
                 setInput(e.target.value);
@@ -258,7 +259,7 @@ export default function App() {
                 if (phase === "qty") qtyReplaceFirstKeyRef.current = false;
               }}
               onKeyDown={handleMainKeyDown}
-              placeholder={phase === "code" ? "type name…" : `default: ${selectedFood?.defaultQty}g`}
+              placeholder={phase === "code" ? "type food…" : `default: ${selectedFood?.defaultQty}g`}
               inputMode="text"
               autoCapitalize="none"
               autoCorrect="off"

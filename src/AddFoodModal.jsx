@@ -322,6 +322,7 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
                 <div style={{ fontSize: 9, color: "#555", letterSpacing: 1.5, marginBottom: 4 }}>{label}</div>
                 <input
                   ref={key === "name" ? nameRef : null}
+                  name={key === "name" ? "manual-food-item" : undefined}
                   value={form[key]}
                   onChange={e => set(key, e.target.value)}
                   onFocus={selectAllOnFocus}
