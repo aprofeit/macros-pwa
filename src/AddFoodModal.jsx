@@ -322,7 +322,7 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
                 <div style={{ fontSize: 9, color: "#555", letterSpacing: 1.5, marginBottom: 4 }}>{label}</div>
                 <input
                   ref={key === "name" ? nameRef : null}
-                  name={key === "name" ? "food-name" : undefined}
+                  name={key === "name" ? "manual-food-item" : undefined}
                   value={form[key]}
                   onChange={e => set(key, e.target.value)}
                   onFocus={selectAllOnFocus}
@@ -330,7 +330,7 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
                   inputMode={inputMode}
                   autoCapitalize="none"
                   autoCorrect="off"
-                  autoComplete={key === "name" ? "one-time-code" : "off"}
+                  autoComplete="off"
                   spellCheck={false}
                   style={{
                     width: "100%", background: "#1a1a1a", border: "1px solid #333",
