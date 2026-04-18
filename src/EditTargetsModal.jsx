@@ -7,14 +7,23 @@ const FIELDS = [
   ["carbs",   "CARBS (g)",   "#c8f542"],
 ];
 
+function toNum(s) {
+  const n = parseFloat(String(s).trim());
+  return Number.isFinite(n) ? n : NaN;
+}
+
 export function EditTargetsModal({ targets, onSave, onCancel }) {
   const [form, setForm] = useState(() => ({
-    protein: targets.protein,
-    fat: targets.fat,
-    carbs: targets.carbs,
+    protein: String(targets.protein),
+    fat: String(targets.fat),
+    carbs: String(targets.carbs),
   }));
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const derivedKcal = kcalFromMacroTargets(form);
+  const derivedKcal = kcalFromMacroTargets({
+    protein: toNum(form.protein),
+    fat: toNum(form.fat),
+    carbs: toNum(form.carbs),
+  });
 
   return (
     <div style={{
@@ -38,7 +47,7 @@ export function EditTargetsModal({ targets, onSave, onCancel }) {
               type="number"
               inputMode="decimal"
               value={form[k]}
-              onChange={e => set(k, +e.target.value)}
+              onChange={e => set(k, e.target.value)}
               style={{
                 width: "100%", background: "#1a1a1a", border: "1px solid #333",
                 color: "#fff", fontFamily: "'IBM Plex Mono', monospace",
@@ -60,7 +69,11 @@ export function EditTargetsModal({ targets, onSave, onCancel }) {
         </div>
 
         <button
-          onClick={() => onSave({ protein: form.protein, fat: form.fat, carbs: form.carbs })}
+          onClick={() => onSave({
+            protein: toNum(form.protein),
+            fat: toNum(form.fat),
+            carbs: toNum(form.carbs),
+          })}
           style={{
             marginTop: 8, width: "100%", background: "#c8f542", color: "#000",
             border: "none", fontFamily: "'IBM Plex Mono', monospace",
