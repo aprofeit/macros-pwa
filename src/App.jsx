@@ -43,9 +43,23 @@ export default function App() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const inputRef = useRef();
+  const qtyReplaceFirstKeyRef = useRef(false);
+
   useEffect(() => {
     if (!showAdd && !showTargets && !showFoods && !editingFood && !editingLogEntry) inputRef.current?.focus();
   }, [phase, showAdd, showTargets, showFoods, editingFood, editingLogEntry]);
+
+  useEffect(() => {
+    if (phase !== "qty" || !selectedFood) return;
+    const raf = requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [phase, selectedFood]);
 
   useEffect(() => {
     const vv = typeof window !== "undefined" ? window.visualViewport : null;
@@ -75,6 +89,7 @@ export default function App() {
       recordSearchPick(input, food.id);
       setSelectedFood(food);
       setInput(String(food.defaultQty));
+      qtyReplaceFirstKeyRef.current = true;
       setPhase("qty");
 
     } else {
@@ -87,6 +102,7 @@ export default function App() {
         grams,
       });
       incrementFoodUse(selectedFood.id);
+      qtyReplaceFirstKeyRef.current = false;
       setInput("");
       setSelectedFood(null);
       setPhase("code");
@@ -98,7 +114,38 @@ export default function App() {
     if (e.key === "Escape") resetEntry();
   };
 
+  const handleMainKeyDown = (e) => {
+    if (phase === "qty" && qtyReplaceFirstKeyRef.current) {
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        handleKey(e);
+        return;
+      }
+      const k = e.key;
+      if (k === "Enter" || k === "Escape") {
+        handleKey(e);
+        return;
+      }
+      if (k === "Tab" || k.startsWith("Arrow")) {
+        qtyReplaceFirstKeyRef.current = false;
+        return;
+      }
+      if (k === "Backspace" || k === "Delete") {
+        qtyReplaceFirstKeyRef.current = false;
+        return;
+      }
+      if (k.length === 1 && /[0-9.]/.test(k)) {
+        e.preventDefault();
+        qtyReplaceFirstKeyRef.current = false;
+        setInput(k);
+        setError("");
+        return;
+      }
+    }
+    handleKey(e);
+  };
+
   const resetEntry = () => {
+    qtyReplaceFirstKeyRef.current = false;
     setPhase("code"); setInput(""); setSelectedFood(null); setError("");
   };
 
@@ -106,6 +153,7 @@ export default function App() {
     recordSearchPick(input, food.id);
     setSelectedFood(food);
     setInput(String(food.defaultQty));
+    qtyReplaceFirstKeyRef.current = true;
     setPhase("qty");
     setTimeout(() => inputRef.current?.focus(), 50);
   };
@@ -203,8 +251,12 @@ export default function App() {
               key={phase}
               ref={inputRef}
               value={input}
-              onChange={e => { setInput(e.target.value); setError(""); }}
-              onKeyDown={handleKey}
+              onChange={e => {
+                setInput(e.target.value);
+                setError("");
+                if (phase === "qty") qtyReplaceFirstKeyRef.current = false;
+              }}
+              onKeyDown={handleMainKeyDown}
               placeholder={phase === "code" ? "type name…" : `default: ${selectedFood?.defaultQty}g`}
               inputMode="text"
               autoCapitalize="none"
@@ -384,6 +436,7 @@ export default function App() {
             setShowAdd(false);
             setSelectedFood({ ...food, id: Date.now() });
             setInput(String(food.defaultQty));
+            qtyReplaceFirstKeyRef.current = true;
             setPhase("qty");
           }}
         />
