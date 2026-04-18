@@ -47,7 +47,7 @@ It installs as a standalone app — no browser chrome, full screen.
 
 ## Icons
 
-Replace the placeholder files in `public/icons/` with real PNGs:
+Raster assets live in `public/icons/` (dark background `#0a0a0a`, macro-bar motif in accent colors). Regenerate sizes from a square master with macOS `sips` or [realfavicongenerator.net](https://realfavicongenerator.net).
 
 
 | File                   | Size    | Used for                      |
@@ -55,10 +55,7 @@ Replace the placeholder files in `public/icons/` with real PNGs:
 | `pwa-192.png`          | 192×192 | Android PWA                   |
 | `pwa-512.png`          | 512×512 | Android PWA splash / maskable |
 | `apple-touch-icon.png` | 180×180 | iOS home screen               |
-| `favicon.ico`          | 32×32   | Browser tab                   |
-
-
-Quick way to generate all sizes: [realfavicongenerator.net](https://realfavicongenerator.net)
+| `favicon.ico`          | multi   | Browser tab                   |
 
 ## Data
 
