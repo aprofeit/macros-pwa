@@ -11,10 +11,10 @@ async function fetchJson(url, options) {
 }
 
 export function hasFdcKey() {
-  // For local dev, the Vite dev-server proxy reads FDC_API_KEY or VITE_FDC_API_KEY
-  // from `.env.local` (server-side). For Vercel, the serverless functions read the
-  // same env vars on the server. In both cases the browser itself doesn't need the key.
-  return true;
+  // Client may have VITE_FDC_API_KEY. Dev server can also expose availability via
+  // vite `define` when only FDC_API_KEY is set (proxy active; key never sent to the client).
+  if (String(import.meta.env?.VITE_FDC_API_KEY ?? "").trim()) return true;
+  return __FDC_PROXY_ACTIVE__;
 }
 
 export async function fdcSearchFoods(query, { pageSize = 10 } = {}) {

@@ -65,9 +65,8 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
 
   const fdcEnabled = useMemo(() => hasFdcKey(), []);
 
-  // Debounced USDA search
+  // Debounced multi-source search (Open Food Facts + USDA when configured)
   useEffect(() => {
-    if (!fdcEnabled) return;
     if (mode !== "search") return;
     const q = searchQuery.trim();
     setSearchError("");
@@ -92,7 +91,7 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
         });
     }, 350);
     return () => clearTimeout(t);
-  }, [searchQuery, fdcEnabled, mode]);
+  }, [searchQuery, mode]);
 
   const handleSave = () => {
     if (!valid) return;
@@ -202,12 +201,13 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
 
         {mode === "search" && (
           <div style={{ marginBottom: 12 }}>
-            {!fdcEnabled ? (
-              <div style={{ fontSize: 10, color: "#555", letterSpacing: 0.5 }}>
-                Set <span style={{ color: "#777" }}>FDC_API_KEY</span> (recommended) or <span style={{ color: "#777" }}>VITE_FDC_API_KEY</span> in <span style={{ color: "#777" }}>.env.local</span> (and in Vercel env) to enable search.
+            {!fdcEnabled && (
+              <div style={{ fontSize: 10, color: "#555", letterSpacing: 0.5, marginBottom: 10 }}>
+                Open Food Facts search works here. Add <span style={{ color: "#777" }}>FDC_API_KEY</span> or{" "}
+                <span style={{ color: "#777" }}>VITE_FDC_API_KEY</span> in <span style={{ color: "#777" }}>.env.local</span> for USDA results too (restart dev server).
               </div>
-            ) : (
-              <>
+            )}
+            <>
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -312,7 +312,6 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
                   </div>
                 )}
               </>
-            )}
           </div>
         )}
 

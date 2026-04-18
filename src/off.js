@@ -1,22 +1,14 @@
-const OFF_DIRECT = "https://world.openfoodfacts.org/cgi/search.pl";
 const OFF_PROXY = "/api/off/search";
 
 export async function offSearchFoods(query, { pageSize = 10 } = {}) {
   const q = String(query ?? "").trim();
   if (!q) return [];
 
-  let url;
-  if (import.meta.env.DEV) {
-    url = new URL(OFF_DIRECT);
-    url.searchParams.set("search_terms", q);
-    url.searchParams.set("json", "1");
-    url.searchParams.set("page_size", String(pageSize));
-    url.searchParams.set("fields", "product_name,nutriments,code,brands");
-  } else {
-    url = new URL(OFF_PROXY, location.origin);
-    url.searchParams.set("q", q);
-    url.searchParams.set("pageSize", String(pageSize));
-  }
+  // Always use same-origin `/api/off/search`: Vite proxies to Open Food Facts in dev;
+  // Vercel serverless proxies in production. Direct browser calls hit CORS.
+  const url = new URL(OFF_PROXY, location.origin);
+  url.searchParams.set("q", q);
+  url.searchParams.set("pageSize", String(pageSize));
 
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error(`OFF search failed (${res.status})`);

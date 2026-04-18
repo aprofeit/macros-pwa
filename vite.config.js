@@ -6,11 +6,28 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const apiKey = env.FDC_API_KEY || env.VITE_FDC_API_KEY;
 
-  return {
-    server: {
-      host: true,
-      allowedHosts: ['markv.local'],
-      proxy: apiKey ? {
+  /** Open Food Facts — always proxied in dev (browser cannot call OFF directly; CORS). */
+  const offProxy = {
+    "/api/off/search": {
+      target: "https://world.openfoodfacts.org",
+      changeOrigin: true,
+      secure: true,
+      rewrite: (path) => {
+        const q = path.indexOf("?");
+        const search = q >= 0 ? path.slice(q + 1) : "";
+        const params = new URLSearchParams(search);
+        const out = new URL("https://world.openfoodfacts.org/cgi/search.pl");
+        out.searchParams.set("search_terms", params.get("q") ?? "");
+        out.searchParams.set("json", "1");
+        out.searchParams.set("page_size", params.get("pageSize") ?? "10");
+        out.searchParams.set("fields", "product_name,nutriments,code,brands");
+        return out.pathname + out.search;
+      },
+    },
+  };
+
+  const fdcProxy = apiKey
+    ? {
         "/api/fdc/search": {
           target: "https://api.nal.usda.gov",
           changeOrigin: true,
@@ -26,7 +43,17 @@ export default defineConfig(({ mode }) => {
             return `/fdc/v1/food${rest}?api_key=${encodeURIComponent(apiKey)}`;
           },
         },
-      } : undefined,
+      }
+    : {};
+
+  return {
+    define: {
+      __FDC_PROXY_ACTIVE__: JSON.stringify(Boolean(apiKey)),
+    },
+    server: {
+      host: true,
+      allowedHosts: ["markv.local"],
+      proxy: { ...offProxy, ...fdcProxy },
     },
   plugins: [
     react(),
