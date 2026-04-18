@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { hasFdcKey, fdcSearchFoods, fdcGetFood, extractPer100gMacros } from "./fdc.js";
-import { macrosEnteredToPer100g } from "./useMacroStore.js";
+import { macrosEnteredToPer100g, kcalFromMacroTargets, macroFieldGrams } from "./useMacroStore.js";
 
-const FIELDS = [
-  ["name",                 "FOOD NAME",       "Chicken breast", "text"],
+const FIELDS_BEFORE_KCAL = [
+  ["name",                 "FOOD NAME",       "",               "text"],
   ["macroReferenceGrams",  "MACROS FOR (g)",  "100",            "decimal"],
-  ["protein",              "PROTEIN",         "31",             "decimal"],
-  ["fat",                  "FAT",             "3.6",            "decimal"],
+  ["protein",              "PROTEIN",         "0",              "decimal"],
+  ["fat",                  "FAT",             "0",              "decimal"],
   ["carbs",                "CARBS",           "0",              "decimal"],
-  ["kcal",                 "KCAL",            "165",            "decimal"],
+];
+const FIELDS_AFTER_KCAL = [
   ["defaultQty",           "DEFAULT QTY (g)", "150",            "decimal"],
 ];
 
@@ -18,7 +19,7 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
     name: initialName,
     macroReferenceGrams: "100",
     protein: "", fat: "",
-    carbs: "", kcal: "", defaultQty: "100",
+    carbs: "", defaultQty: "100",
   }));
   const [searchQuery, setSearchQuery] = useState("");
   const [searchStatus, setSearchStatus] = useState("idle"); // idle | loading | ready | error
@@ -37,7 +38,17 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const basisNum = Number.parseFloat(String(form.macroReferenceGrams ?? "").trim());
   const basisOk = Number.isFinite(basisNum) && basisNum > 0;
-  const valid = basisOk && ["name","protein","fat","carbs","kcal"].every(k => String(form[k]).trim() !== "");
+  const valid = basisOk && ["name", "protein", "fat", "carbs"].every(k => String(form[k]).trim() !== "");
+
+  const derivedKcal = useMemo(
+    () =>
+      kcalFromMacroTargets({
+        protein: macroFieldGrams(form.protein),
+        fat: macroFieldGrams(form.fat),
+        carbs: macroFieldGrams(form.carbs),
+      }),
+    [form.protein, form.fat, form.carbs]
+  );
 
   const fdcEnabled = useMemo(() => hasFdcKey(), []);
 
@@ -79,7 +90,6 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
         protein: +form.protein,
         fat: +form.fat,
         carbs: +form.carbs,
-        kcal: +form.kcal,
       },
       basis
     );
@@ -101,7 +111,6 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
       protein: selectedMacros.protein == null ? f.protein : String(selectedMacros.protein),
       fat: selectedMacros.fat == null ? f.fat : String(selectedMacros.fat),
       carbs: selectedMacros.carbs == null ? f.carbs : String(selectedMacros.carbs),
-      kcal: selectedMacros.kcal == null ? f.kcal : String(selectedMacros.kcal),
       defaultQty: String(f.defaultQty ?? "").trim() ? f.defaultQty : "100",
     }));
     setMode("manual");
@@ -252,7 +261,14 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
                       <>
                         <div style={{ fontSize: 12, color: "#ddd" }}>{selectedMacros.name || selectedResult.description}</div>
                         <div style={{ fontSize: 10, color: "#444", marginTop: 4 }}>
-                          P {selectedMacros.protein ?? "—"} · F {selectedMacros.fat ?? "—"} · C {selectedMacros.carbs ?? "—"} · {selectedMacros.kcal ?? "—"}k
+                          P {selectedMacros.protein ?? "—"} · F {selectedMacros.fat ?? "—"} · C {selectedMacros.carbs ?? "—"} ·{" "}
+                          {selectedMacros.protein != null && selectedMacros.fat != null && selectedMacros.carbs != null
+                            ? `${kcalFromMacroTargets({
+                                protein: Number(selectedMacros.protein),
+                                fat: Number(selectedMacros.fat),
+                                carbs: Number(selectedMacros.carbs),
+                              })}k`
+                            : "—k"}
                         </div>
                         <button
                           onClick={pickSelected}
@@ -281,11 +297,41 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
 
         {mode === "manual" && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            {FIELDS.map(([key, label, placeholder, inputMode]) => (
+            {FIELDS_BEFORE_KCAL.map(([key, label, placeholder, inputMode]) => (
               <div key={key} style={{ gridColumn: key === "name" || key === "macroReferenceGrams" ? "1/-1" : "auto" }}>
                 <div style={{ fontSize: 9, color: "#555", letterSpacing: 1.5, marginBottom: 4 }}>{label}</div>
                 <input
                   ref={key === "name" ? nameRef : null}
+                  value={form[key]}
+                  onChange={e => set(key, e.target.value)}
+                  placeholder={placeholder}
+                  inputMode={inputMode}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  autoComplete="off"
+                  spellCheck={false}
+                  style={{
+                    width: "100%", background: "#1a1a1a", border: "1px solid #333",
+                    color: "#fff", fontFamily: "'IBM Plex Mono', monospace",
+                    fontSize: 16, padding: "8px 10px", borderRadius: 4,
+                  }}
+                />
+              </div>
+            ))}
+            <div style={{ gridColumn: "1 / -1", marginBottom: 2 }}>
+              <div style={{ fontSize: 9, color: "#a8f", letterSpacing: 1.5, marginBottom: 4 }}>KCAL (AUTO)</div>
+              <div style={{
+                width: "100%", background: "#1a1a1a", border: "1px solid #333",
+                color: "#888", fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: 16, padding: "8px 10px", borderRadius: 4,
+              }}>
+                {derivedKcal}
+              </div>
+            </div>
+            {FIELDS_AFTER_KCAL.map(([key, label, placeholder, inputMode]) => (
+              <div key={key} style={{ gridColumn: key === "name" || key === "macroReferenceGrams" ? "1/-1" : "auto" }}>
+                <div style={{ fontSize: 9, color: "#555", letterSpacing: 1.5, marginBottom: 4 }}>{label}</div>
+                <input
                   value={form[key]}
                   onChange={e => set(key, e.target.value)}
                   placeholder={placeholder}

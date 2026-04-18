@@ -12,6 +12,12 @@ export function kcalFromMacroTargets({ protein, fat, carbs }) {
   return Math.round(safe(p) * 4 + safe(c) * 4 + safe(f) * 9);
 }
 
+/** Parse a macro input string; empty or invalid → 0 (incremental kcal preview). */
+export function macroFieldGrams(s) {
+  const n = Number.parseFloat(String(s ?? "").trim());
+  return Number.isFinite(n) ? n : 0;
+}
+
 function migrateTargets(loaded) {
   const n = (key) => {
     const x = loaded && typeof loaded === "object" ? loaded[key] : undefined;
@@ -27,27 +33,33 @@ function normalizeMacroBasisGrams(B) {
   return Number.isFinite(n) && n > 0 ? n : 100;
 }
 
-/** Convert P/F/C/kcal entered as "for B grams" to per-100g storage. */
-export function macrosEnteredToPer100g({ protein, fat, carbs, kcal }, macroReferenceGrams) {
+/** Convert P/F/C entered as "for B grams" to per-100g storage; kcal from 4/4/9 (same as targets). */
+export function macrosEnteredToPer100g({ protein, fat, carbs }, macroReferenceGrams) {
   const B = normalizeMacroBasisGrams(macroReferenceGrams);
   const s = 100 / B;
+  const p100 = protein * s;
+  const f100 = fat * s;
+  const c100 = carbs * s;
   return {
-    protein: protein * s,
-    fat: fat * s,
-    carbs: carbs * s,
-    kcal: Math.round(kcal * s),
+    protein: p100,
+    fat: f100,
+    carbs: c100,
+    kcal: kcalFromMacroTargets({ protein: p100, fat: f100, carbs: c100 }),
   };
 }
 
-/** Convert stored per-100g macros to "for B grams" for display/editing. */
-export function macrosPer100gToEntered({ protein, fat, carbs, kcal }, macroReferenceGrams) {
+/** Convert stored per-100g macros to "for B grams" for display/editing; kcal from 4/4/9. */
+export function macrosPer100gToEntered({ protein, fat, carbs }, macroReferenceGrams) {
   const B = normalizeMacroBasisGrams(macroReferenceGrams);
   const s = B / 100;
+  const ep = protein * s;
+  const ef = fat * s;
+  const ec = carbs * s;
   return {
-    protein: protein * s,
-    fat: fat * s,
-    carbs: carbs * s,
-    kcal: Math.round(kcal * s),
+    protein: ep,
+    fat: ef,
+    carbs: ec,
+    kcal: kcalFromMacroTargets({ protein: ep, fat: ef, carbs: ec }),
   };
 }
 

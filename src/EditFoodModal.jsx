@@ -1,13 +1,14 @@
 import { useMemo, useState, useRef, useEffect } from "react";
-import { macrosEnteredToPer100g, macrosPer100gToEntered } from "./useMacroStore.js";
+import { macrosEnteredToPer100g, macrosPer100gToEntered, kcalFromMacroTargets, macroFieldGrams } from "./useMacroStore.js";
 
-const FIELDS = [
-  ["name",                 "FOOD NAME",       "Chicken breast",   "text"],
+const FIELDS_BEFORE_KCAL = [
+  ["name",                 "FOOD NAME",       "",                 "text"],
   ["macroReferenceGrams",  "MACROS FOR (g)",  "100",                "decimal"],
-  ["protein",              "PROTEIN",         "31",                 "decimal"],
-  ["fat",                  "FAT",             "3.6",                "decimal"],
+  ["protein",              "PROTEIN",         "0",                  "decimal"],
+  ["fat",                  "FAT",             "0",                  "decimal"],
   ["carbs",                "CARBS",           "0",                  "decimal"],
-  ["kcal",                 "KCAL",            "165",                "decimal"],
+];
+const FIELDS_AFTER_KCAL = [
   ["defaultQty",           "DEFAULT QTY (g)", "150",                "decimal"],
 ];
 
@@ -30,7 +31,6 @@ export function EditFoodModal({ food, foods, onSave, onCancel }) {
         protein: Number(food.protein),
         fat: Number(food.fat),
         carbs: Number(food.carbs),
-        kcal: Number(food.kcal),
       },
       B0
     );
@@ -41,7 +41,6 @@ export function EditFoodModal({ food, foods, onSave, onCancel }) {
       protein: fmtMacroStr(ent.protein),
       fat: fmtMacroStr(ent.fat),
       carbs: fmtMacroStr(ent.carbs),
-      kcal: String(Math.round(ent.kcal)),
       defaultQty: String(food.defaultQty ?? "100"),
     };
   });
@@ -57,14 +56,24 @@ export function EditFoodModal({ food, foods, onSave, onCancel }) {
     [foods, normalizedName, food.id]
   );
 
+  const derivedKcal = useMemo(
+    () =>
+      kcalFromMacroTargets({
+        protein: macroFieldGrams(form.protein),
+        fat: macroFieldGrams(form.fat),
+        carbs: macroFieldGrams(form.carbs),
+      }),
+    [form.protein, form.fat, form.carbs]
+  );
+
   const requiredOk = useMemo(() => {
-    return ["name", "protein", "fat", "carbs", "kcal"].every(k => String(form[k]).trim() !== "");
+    return ["name", "protein", "fat", "carbs"].every(k => String(form[k]).trim() !== "");
   }, [form]);
 
   const numericOk = useMemo(() => {
     const basis = Number.parseFloat(String(form.macroReferenceGrams ?? "").trim());
     if (!Number.isFinite(basis) || basis <= 0) return false;
-    const nums = ["protein", "fat", "carbs", "kcal", "defaultQty"].map(k => Number(form[k]));
+    const nums = ["protein", "fat", "carbs", "defaultQty"].map(k => Number(form[k]));
     return nums.every(n => Number.isFinite(n));
   }, [form]);
 
@@ -79,7 +88,6 @@ export function EditFoodModal({ food, foods, onSave, onCancel }) {
         protein: Number(form.protein),
         fat: Number(form.fat),
         carbs: Number(form.carbs),
-        kcal: Number(form.kcal),
       },
       basis
     );
@@ -108,11 +116,41 @@ export function EditFoodModal({ food, foods, onSave, onCancel }) {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          {FIELDS.map(([key, label, placeholder, inputMode]) => (
+          {FIELDS_BEFORE_KCAL.map(([key, label, placeholder, inputMode]) => (
             <div key={key} style={{ gridColumn: key === "name" || key === "macroReferenceGrams" ? "1/-1" : "auto" }}>
               <div style={{ fontSize: 9, color: "#555", letterSpacing: 1.5, marginBottom: 4 }}>{label}</div>
               <input
                 ref={key === "name" ? nameRef : null}
+                value={form[key]}
+                onChange={e => set(key, e.target.value)}
+                placeholder={placeholder}
+                inputMode={inputMode}
+                autoCapitalize="none"
+                autoCorrect="off"
+                autoComplete="off"
+                spellCheck={false}
+                style={{
+                  width: "100%", background: "#1a1a1a", border: "1px solid #333",
+                  color: "#fff", fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: 16, padding: "8px 10px", borderRadius: 4,
+                }}
+              />
+            </div>
+          ))}
+          <div style={{ gridColumn: "1 / -1", marginBottom: 2 }}>
+            <div style={{ fontSize: 9, color: "#a8f", letterSpacing: 1.5, marginBottom: 4 }}>KCAL (AUTO)</div>
+            <div style={{
+              width: "100%", background: "#1a1a1a", border: "1px solid #333",
+              color: "#888", fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: 16, padding: "8px 10px", borderRadius: 4,
+            }}>
+              {derivedKcal}
+            </div>
+          </div>
+          {FIELDS_AFTER_KCAL.map(([key, label, placeholder, inputMode]) => (
+            <div key={key} style={{ gridColumn: key === "name" || key === "macroReferenceGrams" ? "1/-1" : "auto" }}>
+              <div style={{ fontSize: 9, color: "#555", letterSpacing: 1.5, marginBottom: 4 }}>{label}</div>
+              <input
                 value={form[key]}
                 onChange={e => set(key, e.target.value)}
                 placeholder={placeholder}
