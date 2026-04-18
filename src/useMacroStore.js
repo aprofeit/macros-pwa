@@ -22,11 +22,44 @@ function migrateTargets(loaded) {
   return { protein: n("protein"), fat: n("fat"), carbs: n("carbs") };
 }
 
+function normalizeMacroBasisGrams(B) {
+  const n = typeof B === "number" ? B : Number.parseFloat(String(B));
+  return Number.isFinite(n) && n > 0 ? n : 100;
+}
+
+/** Convert P/F/C/kcal entered as "for B grams" to per-100g storage. */
+export function macrosEnteredToPer100g({ protein, fat, carbs, kcal }, macroReferenceGrams) {
+  const B = normalizeMacroBasisGrams(macroReferenceGrams);
+  const s = 100 / B;
+  return {
+    protein: protein * s,
+    fat: fat * s,
+    carbs: carbs * s,
+    kcal: Math.round(kcal * s),
+  };
+}
+
+/** Convert stored per-100g macros to "for B grams" for display/editing. */
+export function macrosPer100gToEntered({ protein, fat, carbs, kcal }, macroReferenceGrams) {
+  const B = normalizeMacroBasisGrams(macroReferenceGrams);
+  const s = B / 100;
+  return {
+    protein: protein * s,
+    fat: fat * s,
+    carbs: carbs * s,
+    kcal: Math.round(kcal * s),
+  };
+}
+
 function migrateFoods(list) {
   return (Array.isArray(list) ? list : []).map((f) => {
     const { code: _drop, ...rest } = f;
+    const basis = f.macroReferenceGrams;
+    const macroReferenceGrams =
+      typeof basis === "number" && Number.isFinite(basis) && basis > 0 ? basis : 100;
     return {
       ...rest,
+      macroReferenceGrams,
       useCount: typeof f.useCount === "number" ? f.useCount : 0,
     };
   });

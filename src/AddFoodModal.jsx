@@ -1,19 +1,22 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { hasFdcKey, fdcSearchFoods, fdcGetFood, extractPer100gMacros } from "./fdc.js";
+import { macrosEnteredToPer100g } from "./useMacroStore.js";
 
 const FIELDS = [
-  ["name",       "FOOD NAME",     "Chicken breast", "text"],
-  ["protein",    "PROTEIN /100g", "31",             "decimal"],
-  ["fat",        "FAT /100g",     "3.6",            "decimal"],
-  ["carbs",      "CARBS /100g",   "0",              "decimal"],
-  ["kcal",       "KCAL /100g",    "165",            "decimal"],
-  ["defaultQty", "DEFAULT QTY (g)", "150",          "decimal"],
+  ["name",                 "FOOD NAME",       "Chicken breast", "text"],
+  ["macroReferenceGrams",  "MACROS FOR (g)",  "100",            "decimal"],
+  ["protein",              "PROTEIN",         "31",             "decimal"],
+  ["fat",                  "FAT",             "3.6",            "decimal"],
+  ["carbs",                "CARBS",           "0",              "decimal"],
+  ["kcal",                 "KCAL",            "165",            "decimal"],
+  ["defaultQty",           "DEFAULT QTY (g)", "150",            "decimal"],
 ];
 
 export function AddFoodModal({ initialName = "", onSave, onCancel }) {
   const [mode, setMode] = useState("manual"); // manual | search
   const [form, setForm] = useState(() => ({
     name: initialName,
+    macroReferenceGrams: "100",
     protein: "", fat: "",
     carbs: "", kcal: "", defaultQty: "100",
   }));
@@ -32,7 +35,9 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
   }, [mode]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const valid = ["name","protein","fat","carbs","kcal"].every(k => String(form[k]).trim() !== "");
+  const basisNum = Number.parseFloat(String(form.macroReferenceGrams ?? "").trim());
+  const basisOk = Number.isFinite(basisNum) && basisNum > 0;
+  const valid = basisOk && ["name","protein","fat","carbs","kcal"].every(k => String(form[k]).trim() !== "");
 
   const fdcEnabled = useMemo(() => hasFdcKey(), []);
 
@@ -67,13 +72,22 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
 
   const handleSave = () => {
     if (!valid) return;
+    const B = Number.parseFloat(String(form.macroReferenceGrams).trim());
+    const basis = Number.isFinite(B) && B > 0 ? B : 100;
+    const scaled = macrosEnteredToPer100g(
+      {
+        protein: +form.protein,
+        fat: +form.fat,
+        carbs: +form.carbs,
+        kcal: +form.kcal,
+      },
+      basis
+    );
     onSave({
-      ...form,
-      protein:    +form.protein,
-      fat:        +form.fat,
-      carbs:      +form.carbs,
-      kcal:       +form.kcal,
+      name: form.name,
+      ...scaled,
       defaultQty: +form.defaultQty,
+      macroReferenceGrams: basis,
     });
   };
 
@@ -83,6 +97,7 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
     setForm(f => ({
       ...f,
       name: nm,
+      macroReferenceGrams: "100",
       protein: selectedMacros.protein == null ? f.protein : String(selectedMacros.protein),
       fat: selectedMacros.fat == null ? f.fat : String(selectedMacros.fat),
       carbs: selectedMacros.carbs == null ? f.carbs : String(selectedMacros.carbs),
@@ -267,7 +282,7 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
         {mode === "manual" && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {FIELDS.map(([key, label, placeholder, inputMode]) => (
-              <div key={key} style={{ gridColumn: key === "name" ? "1/-1" : "auto" }}>
+              <div key={key} style={{ gridColumn: key === "name" || key === "macroReferenceGrams" ? "1/-1" : "auto" }}>
                 <div style={{ fontSize: 9, color: "#555", letterSpacing: 1.5, marginBottom: 4 }}>{label}</div>
                 <input
                   ref={key === "name" ? nameRef : null}

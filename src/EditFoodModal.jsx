@@ -1,24 +1,50 @@
 import { useMemo, useState, useRef, useEffect } from "react";
+import { macrosEnteredToPer100g, macrosPer100gToEntered } from "./useMacroStore.js";
 
 const FIELDS = [
-  ["name",       "FOOD NAME",       "Chicken breast",   "text"],
-  ["protein",    "PROTEIN /100g",   "31",               "decimal"],
-  ["fat",        "FAT /100g",       "3.6",              "decimal"],
-  ["carbs",      "CARBS /100g",     "0",                "decimal"],
-  ["kcal",       "KCAL /100g",      "165",              "decimal"],
-  ["defaultQty", "DEFAULT QTY (g)", "150",              "decimal"],
+  ["name",                 "FOOD NAME",       "Chicken breast",   "text"],
+  ["macroReferenceGrams",  "MACROS FOR (g)",  "100",                "decimal"],
+  ["protein",              "PROTEIN",         "31",                 "decimal"],
+  ["fat",                  "FAT",             "3.6",                "decimal"],
+  ["carbs",                "CARBS",           "0",                  "decimal"],
+  ["kcal",                 "KCAL",            "165",                "decimal"],
+  ["defaultQty",           "DEFAULT QTY (g)", "150",                "decimal"],
 ];
 
+function fmtMacroStr(n) {
+  if (!Number.isFinite(n)) return "";
+  const r = Math.round(n * 100) / 100;
+  return String(r);
+}
+
 export function EditFoodModal({ food, foods, onSave, onCancel }) {
-  const [form, setForm] = useState(() => ({
-    id: food.id,
-    name: food.name ?? "",
-    protein: String(food.protein ?? ""),
-    fat: String(food.fat ?? ""),
-    carbs: String(food.carbs ?? ""),
-    kcal: String(food.kcal ?? ""),
-    defaultQty: String(food.defaultQty ?? "100"),
-  }));
+  const [form, setForm] = useState(() => {
+    const B0 =
+      typeof food.macroReferenceGrams === "number" &&
+      Number.isFinite(food.macroReferenceGrams) &&
+      food.macroReferenceGrams > 0
+        ? food.macroReferenceGrams
+        : 100;
+    const ent = macrosPer100gToEntered(
+      {
+        protein: Number(food.protein),
+        fat: Number(food.fat),
+        carbs: Number(food.carbs),
+        kcal: Number(food.kcal),
+      },
+      B0
+    );
+    return {
+      id: food.id,
+      name: food.name ?? "",
+      macroReferenceGrams: String(B0),
+      protein: fmtMacroStr(ent.protein),
+      fat: fmtMacroStr(ent.fat),
+      carbs: fmtMacroStr(ent.carbs),
+      kcal: String(Math.round(ent.kcal)),
+      defaultQty: String(food.defaultQty ?? "100"),
+    };
+  });
 
   const nameRef = useRef();
   useEffect(() => { nameRef.current?.focus(); }, []);
@@ -36,6 +62,8 @@ export function EditFoodModal({ food, foods, onSave, onCancel }) {
   }, [form]);
 
   const numericOk = useMemo(() => {
+    const basis = Number.parseFloat(String(form.macroReferenceGrams ?? "").trim());
+    if (!Number.isFinite(basis) || basis <= 0) return false;
     const nums = ["protein", "fat", "carbs", "kcal", "defaultQty"].map(k => Number(form[k]));
     return nums.every(n => Number.isFinite(n));
   }, [form]);
@@ -44,14 +72,23 @@ export function EditFoodModal({ food, foods, onSave, onCancel }) {
 
   const handleSave = () => {
     if (!valid) return;
+    const B = Number.parseFloat(String(form.macroReferenceGrams).trim());
+    const basis = Number.isFinite(B) && B > 0 ? B : 100;
+    const scaled = macrosEnteredToPer100g(
+      {
+        protein: Number(form.protein),
+        fat: Number(form.fat),
+        carbs: Number(form.carbs),
+        kcal: Number(form.kcal),
+      },
+      basis
+    );
     onSave({
       id: food.id,
       name: String(form.name).trim(),
-      protein: Number(form.protein),
-      fat: Number(form.fat),
-      carbs: Number(form.carbs),
-      kcal: Number(form.kcal),
+      ...scaled,
       defaultQty: Number(form.defaultQty),
+      macroReferenceGrams: basis,
     });
   };
 
@@ -72,7 +109,7 @@ export function EditFoodModal({ food, foods, onSave, onCancel }) {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           {FIELDS.map(([key, label, placeholder, inputMode]) => (
-            <div key={key} style={{ gridColumn: key === "name" ? "1/-1" : "auto" }}>
+            <div key={key} style={{ gridColumn: key === "name" || key === "macroReferenceGrams" ? "1/-1" : "auto" }}>
               <div style={{ fontSize: 9, color: "#555", letterSpacing: 1.5, marginBottom: 4 }}>{label}</div>
               <input
                 ref={key === "name" ? nameRef : null}
