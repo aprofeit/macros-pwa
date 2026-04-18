@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { hasFdcKey, fdcGetFood, extractPer100gMacros } from "./fdc.js";
 import { searchAllSources } from "./foodSearch.js";
 import { macrosEnteredToPer100g, kcalFromMacroTargets, macroFieldGrams } from "./useMacroStore.js";
@@ -65,33 +65,30 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
 
   const fdcEnabled = useMemo(() => hasFdcKey(), []);
 
-  // Debounced multi-source search (Open Food Facts + USDA when configured)
-  useEffect(() => {
-    if (mode !== "search") return;
+  const runSearch = useCallback(async () => {
     const q = searchQuery.trim();
     setSearchError("");
-    setSelectedResult(null);
-    setSelectedMacros(null);
+    setImportError("");
     if (!q) {
       setSearchStatus("idle");
       setSearchResults([]);
+      setSelectedResult(null);
+      setSelectedMacros(null);
       return;
     }
     setSearchStatus("loading");
-    const t = setTimeout(() => {
-      searchAllSources(q, { pageSize: 10 })
-        .then(results => {
-          setSearchResults(results);
-          setSearchStatus("ready");
-        })
-        .catch(err => {
-          setSearchResults([]);
-          setSearchStatus("error");
-          setSearchError(err?.message ?? "Search failed");
-        });
-    }, 350);
-    return () => clearTimeout(t);
-  }, [searchQuery, mode]);
+    setSelectedResult(null);
+    setSelectedMacros(null);
+    try {
+      const results = await searchAllSources(q, { pageSize: 10 });
+      setSearchResults(results);
+      setSearchStatus("ready");
+    } catch (err) {
+      setSearchResults([]);
+      setSearchStatus("error");
+      setSearchError(err?.message ?? "Search failed");
+    }
+  }, [searchQuery]);
 
   const handleSave = () => {
     if (!valid) return;
@@ -208,20 +205,40 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
               </div>
             )}
             <>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  runSearch();
+                }}
+                style={{ display: "flex", gap: 8, alignItems: "stretch" }}
+              >
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="chicken breast, oats…"
+                  placeholder="Type food, then Enter or Search…"
                   autoCapitalize="none"
                   autoCorrect="off"
                   autoComplete="off"
                   spellCheck={false}
                   style={{
-                    width: "100%", background: "#1a1a1a", border: "1px solid #333",
+                    flex: 1, minWidth: 0, background: "#1a1a1a", border: "1px solid #333",
                     color: "#fff", fontFamily: "'IBM Plex Mono', monospace",
                     fontSize: 16, padding: "10px 12px", borderRadius: 4,
                   }}
                 />
+                <button
+                  type="submit"
+                  style={{
+                    flexShrink: 0,
+                    background: "#c8f542", border: "none", color: "#000",
+                    fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700,
+                    fontSize: 11, letterSpacing: 1, padding: "0 16px", borderRadius: 4,
+                    cursor: "pointer",
+                  }}
+                >
+                  SEARCH
+                </button>
+              </form>
 
                 {searchStatus === "loading" && (
                   <div style={{ fontSize: 10, color: "#444", marginTop: 8, letterSpacing: 0.5 }}>searching…</div>

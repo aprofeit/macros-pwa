@@ -31,6 +31,20 @@ function relevanceScore(nameNorm, fullQueryNorm, tokens) {
   return s;
 }
 
+/**
+ * Relevance for ordering external search hits (USDA/OFF). Higher = better match.
+ * Scores normalized "name brand" so brand text can help tie-breakers.
+ */
+export function scoreNameAgainstQuery(name, query, brand = null) {
+  const fullQueryNorm = normalizeQuery(query);
+  if (!fullQueryNorm) return -Infinity;
+  const tokens = queryTokens(fullQueryNorm);
+  if (tokens.length === 0) return -Infinity;
+  const nameNorm = normalizeQuery([name, brand].filter(Boolean).join(" "));
+  if (!foodMatchesNameQuery(nameNorm, tokens)) return -Infinity;
+  return relevanceScore(nameNorm, fullQueryNorm, tokens);
+}
+
 function totalScore(food, nameNorm, fullQueryNorm, tokens, queryKey, pickCounts) {
   const rel = relevanceScore(nameNorm, fullQueryNorm, tokens);
   if (!Number.isFinite(rel)) return -Infinity;
