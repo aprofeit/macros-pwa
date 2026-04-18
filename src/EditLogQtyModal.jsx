@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { evaluateMathExpression } from "./evaluateMathExpression.js";
 
 export function EditLogQtyModal({ foodName, grams: initialGrams, onSave, onCancel }) {
   const [grams, setGrams] = useState(() => String(initialGrams ?? ""));
@@ -13,8 +14,8 @@ export function EditLogQtyModal({ foodName, grams: initialGrams, onSave, onCance
   }, []);
 
   const handleSave = () => {
-    const g = Number.parseFloat(String(grams).trim());
-    if (!Number.isFinite(g) || g <= 0) return;
+    const g = evaluateMathExpression(String(grams).trim());
+    if (g === null || g <= 0) return;
     onSave(g);
   };
 
@@ -39,8 +40,7 @@ export function EditLogQtyModal({ foodName, grams: initialGrams, onSave, onCance
           <div style={{ fontSize: 9, color: "#555", letterSpacing: 1.5, marginBottom: 4 }}>GRAMS</div>
           <input
             ref={inputRef}
-            type="number"
-            inputMode="decimal"
+            inputMode="text"
             value={grams}
             onChange={(e) => setGrams(e.target.value)}
             onKeyDown={(e) => {

@@ -7,6 +7,7 @@ import { EditTargetsModal } from "./EditTargetsModal.jsx";
 import { FoodsModal } from "./FoodsModal.jsx";
 import { EditFoodModal } from "./EditFoodModal.jsx";
 import { EditLogQtyModal } from "./EditLogQtyModal.jsx";
+import { evaluateMathExpression } from "./evaluateMathExpression.js";
 
 function patchLogEntryForGrams(entry, newGrams, foods) {
   const food = foods.find((f) => f.id === entry.foodId);
@@ -93,8 +94,8 @@ export default function App() {
       setPhase("qty");
 
     } else {
-      const grams = parseFloat(input);
-      if (!grams || grams <= 0) { setError("invalid weight"); return; }
+      const grams = evaluateMathExpression(input);
+      if (grams === null || grams <= 0) { setError("invalid amount"); return; }
       addEntry({
         ...calcMacros(selectedFood, grams),
         foodName: selectedFood.name,
@@ -161,8 +162,8 @@ export default function App() {
   // ── Preview macros while typing weight ──────────────────────────────────────
   const preview = (() => {
     if (phase !== "qty" || !selectedFood) return null;
-    const g = parseFloat(input);
-    if (!g || g <= 0) return null;
+    const g = evaluateMathExpression(input);
+    if (g === null || g <= 0) return null;
     return calcMacros(selectedFood, g);
   })();
 

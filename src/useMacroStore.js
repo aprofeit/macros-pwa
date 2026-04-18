@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import seedFoods from "./seedFoods.json";
 import { normalizeQuery } from "./matchFood.js";
+import { evaluateMathExpression } from "./evaluateMathExpression.js";
 
 const DEFAULT_TARGETS = { protein: 165, fat: 50, carbs: 220 };
 
@@ -12,10 +13,17 @@ export function kcalFromMacroTargets({ protein, fat, carbs }) {
   return Math.round(safe(p) * 4 + safe(c) * 4 + safe(f) * 9);
 }
 
-/** Parse a macro input string; empty or invalid → 0 (incremental kcal preview). */
+/** Parse a macro input string; empty or invalid → 0 (incremental kcal preview). Supports simple math. */
 export function macroFieldGrams(s) {
-  const n = Number.parseFloat(String(s ?? "").trim());
-  return Number.isFinite(n) ? n : 0;
+  const t = String(s ?? "").trim();
+  if (!t) return 0;
+  const ev = evaluateMathExpression(t);
+  if (ev !== null) return ev;
+  if (/^-?[\d.]*$/.test(t)) {
+    const n = Number.parseFloat(t);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
 }
 
 function migrateTargets(loaded) {

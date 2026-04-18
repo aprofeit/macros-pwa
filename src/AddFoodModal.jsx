@@ -1,16 +1,17 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { hasFdcKey, fdcSearchFoods, fdcGetFood, extractPer100gMacros } from "./fdc.js";
 import { macrosEnteredToPer100g, kcalFromMacroTargets, macroFieldGrams } from "./useMacroStore.js";
+import { evaluateMathExpression } from "./evaluateMathExpression.js";
 
 const FIELDS_BEFORE_KCAL = [
   ["name",                 "FOOD NAME",       "",               "text"],
-  ["macroReferenceGrams",  "MACROS FOR (g)",  "100",            "decimal"],
-  ["protein",              "PROTEIN",         "0",              "decimal"],
-  ["fat",                  "FAT",             "0",              "decimal"],
-  ["carbs",                "CARBS",           "0",              "decimal"],
+  ["macroReferenceGrams",  "MACROS FOR (g)",  "100",            "text"],
+  ["protein",              "PROTEIN",         "0",              "text"],
+  ["fat",                  "FAT",             "0",              "text"],
+  ["carbs",                "CARBS",           "0",              "text"],
 ];
 const FIELDS_AFTER_KCAL = [
-  ["defaultQty",           "DEFAULT QTY (g)", "150",            "decimal"],
+  ["defaultQty",           "DEFAULT QTY (g)", "150",            "text"],
 ];
 
 function selectAllOnFocus(e) {
@@ -40,9 +41,16 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
   }, [mode]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const basisNum = Number.parseFloat(String(form.macroReferenceGrams ?? "").trim());
-  const basisOk = Number.isFinite(basisNum) && basisNum > 0;
-  const valid = basisOk && ["name", "protein", "fat", "carbs"].every(k => String(form[k]).trim() !== "");
+  const basisEv = evaluateMathExpression(String(form.macroReferenceGrams ?? "").trim());
+  const basisOk = basisEv !== null && basisEv > 0;
+  const macroEvals = ["protein", "fat", "carbs", "defaultQty"].map((k) =>
+    evaluateMathExpression(String(form[k] ?? "").trim())
+  );
+  const macrosOk = macroEvals.every((n) => n !== null && Number.isFinite(n));
+  const valid =
+    basisOk &&
+    macrosOk &&
+    ["name", "protein", "fat", "carbs", "defaultQty"].every((k) => String(form[k]).trim() !== "");
 
   const derivedKcal = useMemo(
     () =>
@@ -87,20 +95,20 @@ export function AddFoodModal({ initialName = "", onSave, onCancel }) {
 
   const handleSave = () => {
     if (!valid) return;
-    const B = Number.parseFloat(String(form.macroReferenceGrams).trim());
-    const basis = Number.isFinite(B) && B > 0 ? B : 100;
+    const basisRaw = evaluateMathExpression(String(form.macroReferenceGrams).trim());
+    const basis = basisRaw !== null && basisRaw > 0 ? basisRaw : 100;
     const scaled = macrosEnteredToPer100g(
       {
-        protein: +form.protein,
-        fat: +form.fat,
-        carbs: +form.carbs,
+        protein: evaluateMathExpression(String(form.protein).trim()),
+        fat: evaluateMathExpression(String(form.fat).trim()),
+        carbs: evaluateMathExpression(String(form.carbs).trim()),
       },
       basis
     );
     onSave({
       name: form.name,
       ...scaled,
-      defaultQty: +form.defaultQty,
+      defaultQty: evaluateMathExpression(String(form.defaultQty).trim()),
       macroReferenceGrams: basis,
     });
   };
