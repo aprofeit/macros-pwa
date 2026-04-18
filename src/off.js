@@ -1,5 +1,11 @@
 const OFF_PROXY = "/api/off/search";
 
+const OFF_RETRY_MAX = 3;
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 export async function offSearchFoods(query, { pageSize = 10 } = {}) {
   const q = String(query ?? "").trim();
   if (!q) return [];
@@ -10,7 +16,13 @@ export async function offSearchFoods(query, { pageSize = 10 } = {}) {
   url.searchParams.set("q", q);
   url.searchParams.set("pageSize", String(pageSize));
 
-  const res = await fetch(url.toString());
+  const urlString = url.toString();
+  let res;
+  for (let attempt = 1; attempt <= OFF_RETRY_MAX; attempt++) {
+    res = await fetch(urlString);
+    if (res.ok || res.status !== 503 || attempt === OFF_RETRY_MAX) break;
+    await sleep(400 * attempt + Math.floor(Math.random() * 250));
+  }
   if (!res.ok) throw new Error(`OFF search failed (${res.status})`);
   const data = await res.json();
   return Array.isArray(data?.products) ? data.products : [];

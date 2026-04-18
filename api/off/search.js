@@ -1,5 +1,14 @@
 const OFF_BASE = "https://world.openfoodfacts.org/cgi/search.pl";
 
+const OFF_UPSTREAM_UA =
+  "Mozilla/5.0 (compatible; MacrosPWA/1.0; +https://world.openfoodfacts.org) Chrome/120.0.0.0 Safari/537.36";
+
+const OFF_RETRY_MAX = 3;
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     res.statusCode = 405;
@@ -15,8 +24,21 @@ export default async function handler(req, res) {
   url.searchParams.set("page_size", String(pageSize));
   url.searchParams.set("fields", "product_name,nutriments,code,brands");
 
-  const upstream = await fetch(url.toString());
-  const text = await upstream.text();
+  const fetchOpts = {
+    headers: {
+      "User-Agent": OFF_UPSTREAM_UA,
+      Accept: "application/json",
+    },
+  };
+
+  let upstream;
+  let text = "";
+  for (let attempt = 1; attempt <= OFF_RETRY_MAX; attempt++) {
+    upstream = await fetch(url.toString(), fetchOpts);
+    text = await upstream.text();
+    if (upstream.ok || upstream.status !== 503 || attempt === OFF_RETRY_MAX) break;
+    await sleep(400 * attempt + Math.floor(Math.random() * 250));
+  }
   res.statusCode = upstream.status;
   res.setHeader("Content-Type", "application/json");
   res.end(text);

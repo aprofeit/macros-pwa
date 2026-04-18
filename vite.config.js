@@ -2,6 +2,10 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
+/** Open Food Facts often returns 503 for requests without a normal browser User-Agent. */
+const OFF_UPSTREAM_UA =
+  "Mozilla/5.0 (compatible; MacrosPWA/1.0; +https://world.openfoodfacts.org) Chrome/120.0.0.0 Safari/537.36";
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const apiKey = env.FDC_API_KEY || env.VITE_FDC_API_KEY;
@@ -22,6 +26,12 @@ export default defineConfig(({ mode }) => {
         out.searchParams.set("page_size", params.get("pageSize") ?? "10");
         out.searchParams.set("fields", "product_name,nutriments,code,brands");
         return out.pathname + out.search;
+      },
+      configure: (proxy) => {
+        proxy.on("proxyReq", (proxyReq) => {
+          proxyReq.setHeader("User-Agent", OFF_UPSTREAM_UA);
+          proxyReq.setHeader("Accept", "application/json");
+        });
       },
     },
   };
