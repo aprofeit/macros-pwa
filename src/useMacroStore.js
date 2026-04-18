@@ -147,6 +147,9 @@ export function useMacroStore() {
   ));
   const addEntry   = (entry) => setLogRaw(prev => [...prev, { ...entry, id: Date.now() }]);
   const removeEntry = (id)  => setLogRaw(prev => prev.filter(e => e.id !== id));
+  const updateLogEntry = useCallback((id, patch) => {
+    setLogRaw((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  }, []);
   const setTargets = useCallback((t) => {
     setMacroTargets(migrateTargets(t));
   }, []);
@@ -173,6 +176,7 @@ export function useMacroStore() {
     recordSearchPick,
     addEntry,
     removeEntry,
+    updateLogEntry,
     setTargets,
   };
 }

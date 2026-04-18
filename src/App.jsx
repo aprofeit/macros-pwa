@@ -6,9 +6,29 @@ import { AddFoodModal } from "./AddFoodModal.jsx";
 import { EditTargetsModal } from "./EditTargetsModal.jsx";
 import { FoodsModal } from "./FoodsModal.jsx";
 import { EditFoodModal } from "./EditFoodModal.jsx";
+import { EditLogQtyModal } from "./EditLogQtyModal.jsx";
+
+function patchLogEntryForGrams(entry, newGrams, foods) {
+  const food = foods.find((f) => f.id === entry.foodId);
+  if (food) {
+    return { grams: newGrams, ...calcMacros(food, newGrams) };
+  }
+  const g0 = entry.grams;
+  if (!g0 || g0 <= 0) {
+    return { grams: newGrams, protein: 0, fat: 0, carbs: 0, kcal: 0 };
+  }
+  const r = newGrams / g0;
+  return {
+    grams: newGrams,
+    protein: +(entry.protein * r).toFixed(1),
+    fat: +(entry.fat * r).toFixed(1),
+    carbs: +(entry.carbs * r).toFixed(1),
+    kcal: Math.round(entry.kcal * r),
+  };
+}
 
 export default function App() {
-  const { foods, targets, log, totals, searchPicks, addFood, updateFood, incrementFoodUse, recordSearchPick, addEntry, removeEntry, setTargets } = useMacroStore();
+  const { foods, targets, log, totals, searchPicks, addFood, updateFood, incrementFoodUse, recordSearchPick, addEntry, removeEntry, updateLogEntry, setTargets } = useMacroStore();
 
   const [phase,        setPhase]        = useState("code"); // "code" | "qty"
   const [input,        setInput]        = useState("");
@@ -19,12 +39,13 @@ export default function App() {
   const [showTargets,  setShowTargets]  = useState(false);
   const [showFoods,    setShowFoods]    = useState(false);
   const [editingFood,  setEditingFood]  = useState(null);
+  const [editingLogEntry, setEditingLogEntry] = useState(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const inputRef = useRef();
   useEffect(() => {
-    if (!showAdd && !showTargets && !showFoods && !editingFood) inputRef.current?.focus();
-  }, [phase, showAdd, showTargets, showFoods, editingFood]);
+    if (!showAdd && !showTargets && !showFoods && !editingFood && !editingLogEntry) inputRef.current?.focus();
+  }, [phase, showAdd, showTargets, showFoods, editingFood, editingLogEntry]);
 
   useEffect(() => {
     const vv = typeof window !== "undefined" ? window.visualViewport : null;
@@ -290,18 +311,30 @@ export default function App() {
               display: "flex", alignItems: "center", justifyContent: "space-between",
               padding: "8px 0", borderBottom: "1px solid #161616",
             }}>
-              <div>
+              <button
+                type="button"
+                onClick={() => setEditingLogEntry(e)}
+                style={{
+                  flex: 1, minWidth: 0, textAlign: "left",
+                  background: "none", border: "none", color: "inherit",
+                  cursor: "pointer", padding: 0, fontFamily: "inherit",
+                }}
+              >
                 <div style={{ fontSize: 12, color: "#ccc" }}>
                   {e.foodName} <span style={{ color: "#444" }}>{e.grams}g</span>
                 </div>
                 <div style={{ fontSize: 10, color: "#444", marginTop: 2 }}>
                   P {e.protein} · F {e.fat} · C {e.carbs} · {e.kcal}k
                 </div>
-              </div>
-              <button onClick={() => removeEntry(e.id)} style={{
-                background: "none", border: "none", color: "#333",
-                fontSize: 14, cursor: "pointer", padding: "4px 8px",
-              }}>✕</button>
+              </button>
+              <button
+                type="button"
+                onClick={(ev) => { ev.stopPropagation(); removeEntry(e.id); }}
+                style={{
+                  background: "none", border: "none", color: "#333",
+                  fontSize: 14, cursor: "pointer", padding: "4px 8px",
+                }}
+              >✕</button>
             </div>
           ))
         )}
@@ -378,6 +411,18 @@ export default function App() {
           targets={targets}
           onCancel={() => setShowTargets(false)}
           onSave={t => { setTargets(t); setShowTargets(false); }}
+        />
+      )}
+      {editingLogEntry && (
+        <EditLogQtyModal
+          key={editingLogEntry.id}
+          foodName={editingLogEntry.foodName}
+          grams={editingLogEntry.grams}
+          onCancel={() => setEditingLogEntry(null)}
+          onSave={(g) => {
+            updateLogEntry(editingLogEntry.id, patchLogEntryForGrams(editingLogEntry, g, foods));
+            setEditingLogEntry(null);
+          }}
         />
       )}
     </div>
